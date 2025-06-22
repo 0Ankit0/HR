@@ -1,0 +1,38 @@
+@page "/account/personaldata"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<h1>Personal Data</h1>
+<p>Your email: @userEmail</p>
+<button class="btn btn-danger" @onclick="DeletePersonalData">Delete Personal Data</button>
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-2">@statusMessage</div>
+}
+@code {
+    private string? userEmail;
+    private string? statusMessage;
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<PersonalDataDto>("/api/account/personaldata");
+        userEmail = result?.Email;
+    }
+    private async Task DeletePersonalData()
+    {
+        var response = await Http.DeleteAsync("/api/account/personaldata");
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Personal data deleted.";
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+    public class PersonalDataDto
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+}

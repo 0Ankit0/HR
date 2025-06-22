@@ -1,0 +1,38 @@
+@page "/account/disable2fa"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h1>Disable two-factor authentication (2FA)</h1>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-2">@statusMessage</div>
+}
+
+<div class="alert alert-warning" role="alert">
+    <p>
+        <strong>This action only disables 2FA.</strong>
+    </p>
+    <p>
+        Disabling 2FA does not change the keys used in authenticator apps. If you wish to change the key
+        used in an authenticator app you should <a href="/account/resetauthenticator">reset your authenticator keys.</a>
+    </p>
+</div>
+
+@code {
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Http.PostAsync("/api/2fa/disable", null);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "2FA disabled.";
+            NavigationManager.NavigateTo("/account/manage/2FA", true);
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+}

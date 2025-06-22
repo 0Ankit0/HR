@@ -1,0 +1,61 @@
+@page "/account/confirmemail"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h1>Confirm email</h1>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+@code {
+    private string? statusMessage;
+    private bool isLoading = true;
+    private bool shouldRedirect = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (!query.TryGetValue("userId", out var userId) || !query.TryGetValue("code", out var code))
+        {
+            shouldRedirect = true;
+            return;
+        }
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/user/confirm-email", new {
+                UserId = userId.ToString(),
+                Code = code.ToString()
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Thank you for confirming your email.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Error: {error}";
+            }
+        }
+        catch
+        {
+            statusMessage = "Invalid confirmation link.";
+        }
+        isLoading = false;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (shouldRedirect)
+        {
+            shouldRedirect = false;
+            NavigationManager.NavigateTo("/", forceLoad: true);
+        }
+    }
+}

@@ -1,0 +1,94 @@
+﻿@* @page "/account/profile" *@
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h3>Profile</h3>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+
+@if (isLoaded)
+{
+    <div class="row">
+        <div class="col-md-12">
+            <EditForm Model="inputModel" OnValidSubmit="HandleChangeUsername">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="mb-3 d-flex align-items-center">
+                    <div class="flex-grow-1 position-relative">
+                        <InputText @bind-Value="currentUsername" class="form-control" disabled />
+                    </div>
+                    <button type="button" class="btn btn-outline-primary ms-2 text-nowrap" @onclick="() => showChangeUsername = !showChangeUsername">
+                        @(showChangeUsername ? "Cancel" : "Change Username")
+                    </button>
+                </div>
+
+                @if (showChangeUsername)
+                {
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="inputModel.NewUsername" class="form-control" autocomplete="username" aria-required="true" placeholder="Please enter new username." />
+                        <label class="form-label">New username</label>
+                        <ValidationMessage For="@(() => inputModel.NewUsername)" />
+                    </div>
+                    <button type="submit" class="btn btn-lg btn-primary">Change username</button>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p>Loading...</p>
+}
+
+@code {
+    private string currentUsername = string.Empty;
+    private string? statusMessage;
+    private bool isLoaded = false;
+    private bool showChangeUsername = false;
+    private ProfileInputModel inputModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var profile = await Http.GetFromJsonAsync<ProfileDto>("/api/account/profile");
+        if (profile != null)
+        {
+            currentUsername = profile.Username;
+            isLoaded = true;
+        }
+    }
+
+    private async Task HandleChangeUsername()
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/changeusername", inputModel);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Username changed successfully.";
+            var profile = await Http.GetFromJsonAsync<ProfileDto>("/api/account/profile");
+            if (profile != null)
+            {
+                currentUsername = profile.Username;
+            }
+            showChangeUsername = false;
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    public class ProfileInputModel
+    {
+        [Required]
+        public string NewUsername { get; set; } = string.Empty;
+    }
+
+    public class ProfileDto
+    {
+        public string Username { get; set; } = string.Empty;
+    }
+}

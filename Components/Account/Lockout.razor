@@ -1,0 +1,48 @@
+@page "/account/lockout"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h1>Remove Account Lockout</h1>
+<p>
+    If your account is locked out, enter your username and click the button below to receive a link by email.
+    You will then be redirected to enter the code and remove the lockout.
+</p>
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div>@Message</div>
+}
+
+<div class="mb-3">
+    <label for="emailInput" class="form-label">Username</label>
+    <input id="emailInput" class="form-control" @bind="Email"  type="text" required autocomplete="username" />
+</div>
+
+<button class="btn btn-primary" @onclick="RequestCode" disabled="@IsLoading">
+    @(IsLoading ? "Sending..." : "Send Unlock Link to Email")
+</button>
+
+@code {
+    private string? Message;
+    private bool IsLoading = false;
+    private string Email = string.Empty;
+
+    private async Task RequestCode()
+    {
+        IsLoading = true;
+        Message = string.Empty;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/account/requestunlock", new { Email });
+            Message = "If an account exists for this username, an unlock link has been sent.";
+        }
+        catch
+        {
+            Message = "An error occurred while sending unlock link.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+}

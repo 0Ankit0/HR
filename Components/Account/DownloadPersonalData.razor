@@ -1,0 +1,39 @@
+@using Microsoft.AspNetCore.Identity
+@using System.Text.Json
+@using System.Reflection
+@using Microsoft.AspNetCore.Components.Authorization
+@inject UserManager<IdentityUser> UserManager
+@inject ILogger<DownloadPersonalData> Logger
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<h3>Personal Data</h3>
+<div class="mb-3 d-flex align-items-center">
+    <div class="flex-grow-1 position-relative">
+        <span class="form-control-plaintext text-body">Download a copy of your personal data stored with us.</span>
+    </div>
+    <button type="button" class="btn btn-outline-primary ms-2" @onclick="DownloadData">
+        Download
+    </button>
+</div>
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-2">@statusMessage</div>
+}
+
+@code {
+    private string? statusMessage;
+
+    private async Task DownloadData()
+    {
+        try
+        {
+            var data = await Http.GetStringAsync("/api/account/downloadpersonaldata");
+            await JS.InvokeVoidAsync("saveAsFile", "PersonalData.json", data);
+        }
+        catch
+        {
+            statusMessage = "Failed to download personal data.";
+        }
+    }
+}

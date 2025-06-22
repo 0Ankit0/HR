@@ -1,0 +1,132 @@
+@page "/account/externallogins"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<h1>Manage your external logins</h1>
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+
+    @if (currentLogins.Count > 0)
+    {
+        <h3>Registered Logins</h3>
+        <table class="table">
+            <tbody>
+                @foreach (var login in currentLogins)
+                {
+                    <tr>
+                        <td>@(login.ProviderDisplayName ?? login.LoginProvider)</td>
+                        <td>
+                            @if (showRemoveButton)
+                            {
+                                <button class="btn btn-primary"
+                                        @onclick="() => RemoveLogin(login.LoginProvider, login.ProviderKey)">
+                                    Remove
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p>No external logins associated with your account.</p>
+    }
+
+    @if (otherLogins.Count > 0)
+    {
+        <h4>Add another service to log in.</h4>
+        <hr />
+        <div>
+            @foreach (var provider in otherLogins)
+            {
+                <button class="btn btn-primary me-2"
+                        @onclick="() => LinkLogin(provider.Name)">
+                    @provider.DisplayName
+                </button>
+            }
+        </div>
+    }
+}
+
+@code {
+    private bool isLoading = true;
+    private string? statusMessage;
+    private List<ExternalLoginDto> currentLogins = new();
+    private List<ExternalLoginDto> otherLogins = new();
+    private bool showRemoveButton = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<ExternalLoginsResult>("/api/account/externallogins/manage");
+        if (result != null)
+        {
+            currentLogins = result.CurrentLogins;
+            otherLogins = result.OtherLogins;
+        }
+        isLoading = false;
+    }
+
+    private async Task RemoveLogin(string loginProvider, string providerKey)
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/removelogin", new { loginProvider, providerKey });
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Login removed.";
+            var result = await Http.GetFromJsonAsync<ExternalLoginsResult>("/api/account/externallogins/manage");
+            if (result != null)
+            {
+                currentLogins = result.CurrentLogins;
+                otherLogins = result.OtherLogins;
+            }
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private async Task LinkLogin(string provider)
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/linklogin", new { provider });
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Login linked.";
+            var result = await Http.GetFromJsonAsync<ExternalLoginsResult>("/api/account/externallogins/manage");
+            if (result != null)
+            {
+                currentLogins = result.CurrentLogins;
+                otherLogins = result.OtherLogins;
+            }
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    public class ExternalLoginDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? ProviderDisplayName { get; set; }
+        public string? LoginProvider { get; set; }
+        public string? ProviderKey { get; set; }
+    }
+
+    public class ExternalLoginsResult
+    {
+        public List<ExternalLoginDto> CurrentLogins { get; set; } = new();
+        public List<ExternalLoginDto> OtherLogins { get; set; } = new();
+    }
+}

@@ -1,0 +1,107 @@
+﻿@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<h3>Phone Number</h3>
+@if (isLoaded)
+{
+    <div class="row">
+        <div class="col-md-12">
+            <EditForm Model="inputModel" OnValidSubmit="HandleChangePhone">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="mb-3 d-flex align-items-center">
+                    <div class="flex-grow-1 position-relative">
+                        <InputText @bind-Value="currentPhone" class="form-control" disabled />
+                    </div>
+                    @if (isPhoneConfirmed)
+                    {
+                        <span class="ms-2 h-100 input-group-text text-success fw-bold">✓ Confirmed</span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary ms-2 align-self-center text-nowrap" @onclick="SendVerificationSms">Confirm Phone</button>
+                    }
+                    <button type="button" class="btn btn-outline-primary ms-2 text-nowrap" @onclick="() => showChangePhone = !showChangePhone">
+                        @(showChangePhone ? "Cancel" : "Change Phone")
+                    </button>
+                </div>
+                @if (showChangePhone)
+                {
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="inputModel.NewPhone" class="form-control" autocomplete="tel" aria-required="true" placeholder="Please enter new phone number." />
+                        <label class="form-label">New phone number</label>
+                        <ValidationMessage For="@(() => inputModel.NewPhone)" />
+                    </div>
+                    <button type="submit" class="btn btn-lg btn-primary">Change phone</button>
+                }
+            </EditForm>
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert alert-info mt-2">@statusMessage</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <p>Loading...</p>
+}
+@code {
+    private string currentPhone = string.Empty;
+    private string? statusMessage;
+    private bool isLoaded = false;
+    private bool isPhoneConfirmed = false;
+    private bool showChangePhone = false;
+    private PhoneInputModel inputModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/account/phone");
+        if (phone != null)
+        {
+            currentPhone = phone.PhoneNumber;
+            isPhoneConfirmed = phone.IsConfirmed;
+            isLoaded = true;
+        }
+    }
+
+    private async Task HandleChangePhone()
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/changephone", inputModel);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Phone number changed successfully.";
+            var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/account/phone");
+            if (phone != null)
+            {
+                currentPhone = phone.PhoneNumber;
+                isPhoneConfirmed = phone.IsConfirmed;
+            }
+            showChangePhone = false;
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private async Task SendVerificationSms()
+    {
+        var response = await Http.PostAsync("/api/account/sendphonesms", null);
+        statusMessage = response.IsSuccessStatusCode ? "Verification SMS sent." : await response.Content.ReadAsStringAsync();
+    }
+
+    public class PhoneInputModel
+    {
+        [Required]
+        public string NewPhone { get; set; } = string.Empty;
+    }
+
+    public class PhoneDto
+    {
+        public string PhoneNumber { get; set; } = string.Empty;
+        public bool IsConfirmed { get; set; }
+    }
+}

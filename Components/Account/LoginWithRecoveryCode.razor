@@ -1,0 +1,62 @@
+@page "/account/loginwithrecoverycode"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h1>Recovery code verification</h1>
+<hr />
+<p>
+    You have requested to log in with a recovery code. This login will not be remembered until you provide
+    an authenticator app code at log in or disable 2FA and log in again.
+</p>
+<EditForm Model="model" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <InputText @bind-Value="model.RecoveryCode" class="form-control mb-3" placeholder="Recovery code" />
+    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+</EditForm>
+<p>
+    Lost your recovery codes? <a href="/account/forgotpassword">Reset your password</a>.
+</p>
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-2">@statusMessage</div>
+}
+
+@code {
+    private RecoveryCodeModel model = new();
+    private string? statusMessage;
+    private string? returnUrl;
+
+    protected override void OnInitialized()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("returnUrl", out var value))
+        {
+            returnUrl = value;
+        }
+        else
+        {
+            returnUrl = "/";
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/loginwithrecoverycode", new { model.RecoveryCode, ReturnUrl = returnUrl });
+        if (response.IsSuccessStatusCode)
+        {
+            NavigationManager.NavigateTo(returnUrl ?? "/");
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    public class RecoveryCodeModel
+    {
+        [Required]
+        public string RecoveryCode { get; set; } = string.Empty;
+    }
+}

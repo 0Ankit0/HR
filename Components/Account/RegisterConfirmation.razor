@@ -1,0 +1,58 @@
+@page "/account/registerconfirmation"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+
+<h1>Register confirmation</h1>
+@if (string.IsNullOrEmpty(email))
+{
+    <p>
+        A valid email address must be supplied.
+    </p>
+}
+else if (displayConfirmAccountLink)
+{
+    <p>
+        This app does not currently have a real email sender registered, see <a href="https://aka.ms/aspaccountconf">these docs</a> for how to configure a real email sender.
+        Normally this would be emailed: <a id="confirm-link" href="@emailConfirmationUrl">Click here to confirm your account</a>
+    </p>
+}
+else
+{
+    <p>
+        Please check your email to confirm your account.
+    </p>
+}
+
+@code {
+    private string? email;
+    private string? emailConfirmationUrl;
+    private bool displayConfirmAccountLink;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("email", out var emailValue))
+        {
+            email = emailValue;
+        }
+        else
+        {
+            email = null;
+            return;
+        }
+
+        // Always display the confirm account link in dev, as in the original code
+        displayConfirmAccountLink = true;
+
+        if (displayConfirmAccountLink)
+        {
+            var response = await Http.GetAsync($"/api/account/registerconfirmation?email={email}");
+            if (response.IsSuccessStatusCode)
+            {
+                emailConfirmationUrl = await response.Content.ReadAsStringAsync();
+            }
+        }
+    }
+}

@@ -1,0 +1,118 @@
+@page "/account/enableauthenticator"
+@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+
+<button class="btn btn-link mb-3" type="button" @onclick="NavigateBack">
+    <i class="bi bi-arrow-left"></i> Back
+</button>
+
+<h1>Configure authenticator app</h1>
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+@if (isLoaded)
+{
+    <ol class="list">
+        <li>
+            <p>
+                Download a two-factor authenticator app like Microsoft Authenticator for
+                <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
+                <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> or
+                Google Authenticator for
+                <a
+                    href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a>
+                and
+                <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
+            </p>
+        </li>
+        <li>
+            <p>
+                Scan the QR Code or enter this key <kbd>@sharedKey</kbd> into your two factor authenticator app. Spaces and
+                casing do not matter.
+            </p>
+            <div id="qrCode" class="p-2"></div>
+        </li>
+        <li>
+            <p>
+                Once you have scanned the QR code or input the key above, your two factor authentication app will provide
+                you
+                with a unique code. Enter the code in the confirmation box below.
+            </p>
+            <EditForm Model="inputModel" OnValidSubmit="OnSubmitAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="inputModel.Code" class="form-control" autocomplete="off"
+                        placeholder="Please enter the code." />
+                    <label class="form-label">Verification Code</label>
+                    <ValidationMessage For="@(() => inputModel.Code)" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary">Verify</button>
+            </EditForm>
+        </li>
+    </ol>
+    @if (showRecoveryCodes && recoveryCodes != null && recoveryCodes.Length > 0)
+    {
+        <div class="alert alert-success mt-3">
+            <strong>Recovery codes:</strong>
+            <ul>
+                @foreach (var codes in recoveryCodes)
+                {
+                    <li><code>@codes</code></li>
+                }
+            </ul>
+        </div>
+    }
+}
+@code {
+    private string? statusMessage;
+    private bool isLoaded = true;
+    private string sharedKey = "ABCDEF123456"; // Should be fetched from API
+    private bool showRecoveryCodes = false;
+    private string[]? recoveryCodes;
+    private InputModel inputModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Fetch sharedKey and QR code from API
+        // Example: var result = await Http.GetFromJsonAsync<AuthenticatorSetupDto>("/api/2fa/setup");
+        // sharedKey = result?.SharedKey ?? "";
+        // Optionally render QR code using JS
+    }
+
+    private async Task OnSubmitAsync()
+    {
+        // Call API to verify code and enable 2FA
+        var response = await Http.PostAsJsonAsync("/api/2fa/enable", inputModel);
+        if (response.IsSuccessStatusCode)
+        {
+            showRecoveryCodes = true;
+            recoveryCodes = await response.Content.ReadFromJsonAsync<string[]>();
+            statusMessage = "Authenticator enabled.";
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/account/manage/2FA", forceLoad: true);
+    }
+
+    public class InputModel
+    {
+        [Required]
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class AuthenticatorSetupDto
+    {
+        public string SharedKey { get; set; } = string.Empty;
+        public string QrCodeUri { get; set; } = string.Empty;
+    }
+}

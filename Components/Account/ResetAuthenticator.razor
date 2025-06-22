@@ -1,0 +1,47 @@
+@page "/account/resetauthenticator"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<button class="btn btn-link mb-3" type="button" @onclick="NavigateBack">
+    <i class="bi bi-arrow-left"></i> Back
+</button>
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
+    private string? statusMessage;
+    private string? userId;
+    protected override async Task OnInitializedAsync()
+    {
+        statusMessage = null;
+        if (authenticationStateTask == null)
+        {
+            statusMessage = "Unable to load authentication state.";
+            return;
+        }
+        var authState = await authenticationStateTask;
+        userId = authState.User.FindFirst(c => c.Type == "sub" || c.Type == "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            statusMessage = "User not found.";
+            return;
+        }
+        var response = await Http.PostAsync($"/api/2fa/reset-authenticator/{userId}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.";
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/account/manage", forceLoad: true);
+    }
+}

@@ -1,0 +1,107 @@
+﻿@using System.ComponentModel.DataAnnotations
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+<h3>Email</h3>
+@if (isLoaded)
+{
+    <div class="row">
+        <div class="col-md-12">
+            <EditForm Model="inputModel" OnValidSubmit="HandleChangeEmail">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="mb-3 d-flex align-items-center">
+                    <div class="flex-grow-1 position-relative">
+                        <InputText @bind-Value="currentEmail" class="form-control" disabled />
+                    </div>
+                    @if (isEmailConfirmed)
+                    {
+                        <span class="ms-2 h-100 input-group-text text-success fw-bold">✓ Confirmed</span>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary ms-2 align-self-center" @onclick="SendVerificationEmail">Confirm Email</button>
+                    }
+                    <button type="button" class="btn btn-outline-primary ms-2" @onclick="() => showChangeEmail = !showChangeEmail">
+                        @(showChangeEmail ? "Cancel" : "Change Email")
+                    </button>
+                </div>
+                @if (showChangeEmail)
+                {
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="inputModel.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="Please enter new email." />
+                        <label class="form-label">New email</label>
+                        <ValidationMessage For="@(() => inputModel.NewEmail)" />
+                    </div>
+                    <button type="submit" class="btn btn-lg btn-primary">Change email</button>
+                }
+            </EditForm>
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert alert-info mt-2">@statusMessage</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <p>Loading...</p>
+}
+@code {
+    private string currentEmail = string.Empty;
+    private string? statusMessage;
+    private bool isLoaded = false;
+    private bool isEmailConfirmed = false;
+    private bool showChangeEmail = false;
+    private EmailInputModel inputModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var email = await Http.GetFromJsonAsync<EmailDto>("/api/account/email");
+        if (email != null)
+        {
+            currentEmail = email.Email;
+            isEmailConfirmed = email.IsConfirmed;
+            isLoaded = true;
+        }
+    }
+
+    private async Task HandleChangeEmail()
+    {
+        var response = await Http.PostAsJsonAsync("/api/account/changeemail", inputModel);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Email changed successfully.";
+            var email = await Http.GetFromJsonAsync<EmailDto>("/api/account/email");
+            if (email != null)
+            {
+                currentEmail = email.Email;
+                isEmailConfirmed = email.IsConfirmed;
+            }
+            showChangeEmail = false;
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
+
+    private async Task SendVerificationEmail()
+    {
+        var response = await Http.PostAsync("/api/account/sendemailverification", null);
+        statusMessage = response.IsSuccessStatusCode ? "Verification email sent." : await response.Content.ReadAsStringAsync();
+    }
+
+    public class EmailInputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string NewEmail { get; set; } = string.Empty;
+    }
+
+    public class EmailDto
+    {
+        public string Email { get; set; } = string.Empty;
+        public bool IsConfirmed { get; set; }
+    }
+}

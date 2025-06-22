@@ -1,0 +1,52 @@
+@page "/account/confirmphone"  
+@inject HttpClient Http  
+@inject NavigationManager NavigationManager  
+
+<h1>Confirm Phone</h1>  
+
+<p>Please enter the code sent to your phone:</p>  
+<div class="form-floating mb-3">
+    <InputText @bind-Value="code" class="form-control" autocomplete="000000" aria-required="true" placeholder="Please enter the Code." />
+    <label class="form-label">Enter Code</label>
+</div>
+<button @onclick="ConfirmCode" class="btn btn-lg btn-primary">Confirm</button>
+
+@if (!string.IsNullOrEmpty(statusMessage))  
+{  
+    <div class="alert alert-info">@statusMessage</div>  
+}  
+
+@code {  
+    private string code = string.Empty;  
+    private string? statusMessage;  
+    private string? phoneNo;  
+
+    protected override void OnInitialized()  
+    {  
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);  
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);  
+        if (query.TryGetValue("phoneNo", out var value))  
+        {  
+            phoneNo = value;  
+        }  
+    }  
+
+    private async Task ConfirmCode()  
+    {  
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(phoneNo))  
+        {  
+            statusMessage = "Please enter a code and phone number.";  
+            return;  
+        }  
+        var response = await Http.PostAsJsonAsync("/api/account/confirmphone", new { code, phoneNo });  
+        if (response.IsSuccessStatusCode)  
+        {  
+            statusMessage = "Phone number confirmed successfully.";  
+            NavigationManager.NavigateTo("/account/manage/profile");  
+        }  
+        else  
+        {  
+            statusMessage = await response.Content.ReadAsStringAsync();  
+        }  
+    }  
+}

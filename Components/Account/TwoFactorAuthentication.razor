@@ -1,0 +1,193 @@
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@attribute [Authorize]
+
+<h1>Two-factor authentication (2FA)</h1>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (loadError != null)
+{
+    <div class="alert alert-danger">@loadError</div>
+}
+else
+{
+    @if (is2faEnabled)
+    {
+        if (isMachineRemembered)
+        {
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Forget this browser for 2FA.</span>
+                </div>
+                <button type="button" class="btn btn-outline-danger ms-2" @onclick="ForgetBrowser" disabled="@isProcessing">
+                    Forget this browser
+                </button>
+            </div>
+        }
+        <div class="mb-3 d-flex align-items-center">
+            <div class="flex-grow-1 position-relative">
+                <span class="form-control-plaintext text-body">Disable two-factor authentication.</span>
+            </div>
+            <a href="/account/disable2fa" class="btn btn-outline-danger ms-2">Disable 2FA</a>
+        </div>
+        <div class="mb-3 d-flex align-items-center">
+            <div class="flex-grow-1 position-relative">
+                <span class="form-control-plaintext text-body">Generate new recovery codes.</span>
+            </div>
+            <button class="btn btn-outline-danger ms-2" @onclick="GenerateRecoveryCodes">Generate</button>
+        </div>
+    }
+
+    <h4>Authenticator app</h4>
+    @if (!hasAuthenticator)
+    {
+        <div class="mb-3 d-flex align-items-center">
+            <div class="flex-grow-1 position-relative">
+                <span class="form-control-plaintext text-body">Add an authenticator app for 2FA.</span>
+            </div>
+            <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Add authenticator app</a>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3 d-flex align-items-center">
+            <div class="flex-grow-1 position-relative">
+                <span class="form-control-plaintext text-body">Set up your authenticator app again.</span>
+            </div>
+            <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Set up</a>
+        </div>
+        <div class="mb-3 d-flex align-items-center">
+            <div class="flex-grow-1 position-relative">
+                <span class="form-control-plaintext text-body">Reset your authenticator app.</span>
+            </div>
+            <button type="button" id="reset-authenticator" class="btn btn-outline-danger ms-2" @onclick="() => showResetAuthenticatorModal = true">Reset</button>
+        </div>
+        @if (showResetAuthenticatorModal)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Reset Authenticator App</h5>
+                        </div>
+                        <div class="modal-body">
+                            <p>
+                                If you reset your authenticator key your authenticator app will not work until you reconfigure it.<br /><br />
+                                This process disables 2FA until you verify your authenticator app. If you do not complete your authenticator app configuration you may lose access to your account.
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-danger" @onclick="ConfirmResetAuthenticator">Reset</button>
+                            <button type="button" class="btn btn-secondary" @onclick="() => showResetAuthenticatorModal = false">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public string? UserId { get; set; }
+
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string? loadError;
+    private string? statusMessage;
+    private bool isMachineRemembered;
+
+    private bool hasAuthenticator;
+    private int recoveryCodesLeft;
+    private bool is2faEnabled;
+    private bool showResetAuthenticatorModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // You may want to get the userId from the current user context or route
+        if (string.IsNullOrEmpty(UserId))
+        {
+            loadError = "User not found.";
+            isLoading = false;
+            return;
+        }
+        await LoadAsync();
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("statusMessage", out var msg))
+        {
+            statusMessage = msg;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadError = null;
+        statusMessage = null;
+
+        var result = await Http.GetFromJsonAsync<TwoFaStatusDto>($"/api/2fa/status/{UserId}");
+        if (result == null)
+        {
+            loadError = "Failed to load 2FA status.";
+            isLoading = false;
+            return;
+        }
+        hasAuthenticator = result.hasAuthenticator;
+        is2faEnabled = result.is2faEnabled;
+        recoveryCodesLeft = result.recoveryCodesLeft;
+        // You may want to call a separate endpoint for isMachineRemembered if needed
+        isLoading = false;
+    }
+
+    private async Task ForgetBrowser()
+    {
+        isProcessing = true;
+        statusMessage = null;
+        var response = await Http.PostAsync($"/api/2fa/forget-browser/{UserId}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.";
+            await LoadAsync();
+        }
+        else
+        {
+            statusMessage = "Failed to forget browser.";
+        }
+        isProcessing = false;
+    }
+
+    private void ConfirmResetAuthenticator()
+    {
+        showResetAuthenticatorModal = false;
+        NavigationManager.NavigateTo($"/account/resetauthenticator?userId={UserId}");
+    }
+
+    private async Task GenerateRecoveryCodes()
+    {
+        var response = await Http.PostAsync($"/api/2fa/generate-recovery-codes/{UserId}", null);
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "New recovery codes generated.";
+            await LoadAsync();
+        }
+        else
+        {
+            statusMessage = "Failed to generate recovery codes.";
+        }
+    }
+
+    public class TwoFaStatusDto
+    {
+        public bool hasAuthenticator { get; set; }
+        public bool is2faEnabled { get; set; }
+        public int recoveryCodesLeft { get; set; }
+    }
+}
