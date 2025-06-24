@@ -1,13 +1,19 @@
 window.renderQrCode = (elementId, qrCodeUri) => {
-       const container = document.getElementById(elementId);
-       if (!container) return;
-       container.innerHTML = ""; // Clear previous QR code if any
-       new QRCode(container, {
-           text: qrCodeUri,
-           width: 200,
-           height: 200
-       });
+    // Remove any previous QR code
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.innerHTML = "";
+    // Create QR code
+    new QRCode(el, {
+        text: qrCodeUri,
+        width: 200,
+        height: 200,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+    });
 };
+
 window.downloadFileFromBytes = (fileName, contentType, bytes) => {
     // Convert .NET byte[] (Uint8Array) to a Blob and trigger download
     const blob = new Blob([new Uint8Array(bytes)], { type: contentType });
