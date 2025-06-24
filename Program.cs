@@ -62,6 +62,11 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapAccountApi();
+app.MapPasswordApi();
+app.MapRoleApi();
+app.MapTwoFactorApi();
+app.MapUserApi();
+
 
 app.Run();
 public class TwoFactorLoginRequest
