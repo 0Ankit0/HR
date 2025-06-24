@@ -1,7 +1,6 @@
-using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Components.Authorization;
 
-namespace HR.Components;
+namespace HR.Config;
 
 public class AuthenticationHandler : DelegatingHandler
 {
