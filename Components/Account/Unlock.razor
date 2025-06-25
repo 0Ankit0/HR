@@ -31,13 +31,32 @@
     [SupplyParameterFromQuery(Name = "code")]
     public string? EncodedCode { get; set; }
 
+    private string? DecodedCode { get; set; }
+
     private bool HasParams => !string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(EncodedCode);
 
     protected override async Task OnParametersSetAsync()
     {
         if (HasParams)
         {
-            await RemoveLockout();
+            try
+            {
+                var codeBytes = WebEncoders.Base64UrlDecode(EncodedCode!);
+                DecodedCode = Encoding.UTF8.GetString(codeBytes);
+            }
+            catch
+            {
+                DecodedCode = null;
+            }
+
+            if (!string.IsNullOrEmpty(DecodedCode))
+            {
+                await RemoveLockout();
+            }
+            else
+            {
+                Message = "Invalid unlock code format.";
+            }
         }
     }
 
@@ -47,7 +66,7 @@
         Message = string.Empty;
         try
         {
-            var response = await Http.PostAsJsonAsync("/api/account/unlock", new { Email, EncodedCode });
+            var response = await Http.PostAsJsonAsync("/api/account/unlock", new { Email, Code = DecodedCode });
             if (response.IsSuccessStatusCode)
             {
                 Message = "Lockout removed. You may now try logging in again.";

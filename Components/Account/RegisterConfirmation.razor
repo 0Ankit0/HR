@@ -3,13 +3,13 @@
 @inject NavigationManager NavigationManager
 
 <h1>Register confirmation</h1>
-@if (string.IsNullOrEmpty(email))
+@if (string.IsNullOrEmpty(Email))
 {
     <p>
         A valid email address must be supplied.
     </p>
 }
-else if (displayConfirmAccountLink)
+else if (displayConfirmAccountLink && !string.IsNullOrEmpty(emailConfirmationUrl))
 {
     <p>
         This app does not currently have a real email sender registered, see <a href="https://aka.ms/aspaccountconf">these docs</a> for how to configure a real email sender.
@@ -24,35 +24,42 @@ else
 }
 
 @code {
-    private string? email;
+    [Parameter,SupplyParameterFromQuery]
+    public string Email { get; set; } = string.Empty;
+
     private string? emailConfirmationUrl;
     private bool displayConfirmAccountLink;
+    private bool isDev = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        
 
-        if (query.TryGetValue("email", out var emailValue))
-        {
-            email = emailValue;
-        }
-        else
-        {
-            email = null;
-            return;
-        }
-
-        // Always display the confirm account link in dev, as in the original code
-        displayConfirmAccountLink = true;
+#if DEBUG
+        isDev = true;
+#endif
+        displayConfirmAccountLink = isDev;
 
         if (displayConfirmAccountLink)
         {
-            var response = await Http.GetAsync($"/api/account/registerconfirmation?email={email}");
-            if (response.IsSuccessStatusCode)
+            try
             {
-                emailConfirmationUrl = await response.Content.ReadAsStringAsync();
+                var response = await Http.GetAsync($"/api/account/registerconfirmation?email={Uri.EscapeDataString(Email)}");
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadFromJsonAsync<RegisterConfirmationResponse>();
+                    emailConfirmationUrl = json?.ConfirmationUrl;
+                }
+            }
+            catch
+            {
+                emailConfirmationUrl = null;
             }
         }
+    }
+
+    private class RegisterConfirmationResponse
+    {
+        public string? ConfirmationUrl { get; set; }
     }
 }
