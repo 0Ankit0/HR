@@ -28,8 +28,16 @@
     {
         try
         {
-            var data = await Http.GetStringAsync("/api/account/downloadpersonaldata");
-            await JS.InvokeVoidAsync("saveAsFile", "PersonalData.json", data);
+            var response = await Http.GetAsync("/api/account/downloadpersonaldata");
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("saveAsFile", "PersonalData.json", data);
+            }
+            else
+            {
+                statusMessage = await response.Content.ReadAsStringAsync();
+            }
         }
         catch
         {

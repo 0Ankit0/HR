@@ -64,7 +64,7 @@ else
 
     private async Task HandleChangeUsername()
     {
-        var response = await Http.PostAsJsonAsync("/api/account/changeusername", inputModel);
+        var response = await Http.PostAsJsonAsync("/api/user/changeusername", inputModel);
         if (response.IsSuccessStatusCode)
         {
             statusMessage = "Username changed successfully.";
