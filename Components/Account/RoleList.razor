@@ -1,5 +1,6 @@
 @page "/account/roles"
 @using System.Net.Http.Json
+@using static HR.Api.RoleApi
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
@@ -132,7 +133,8 @@
         roleUserNames = new Dictionary<string, List<string>>();
         foreach (var role in roles)
         {
-            var userNames = await Http.GetFromJsonAsync<List<string>>($"/api/roles/{role.Id}/users/names") ?? new();
+            var userResponses = await Http.GetFromJsonAsync<List<RoleResponse>>($"/api/roles/{role.Id}/users") ?? new();
+            var userNames = userResponses.Select(u => u.UserName).ToList();
             roleUserNames[role.Id] = userNames;
         }
     }
