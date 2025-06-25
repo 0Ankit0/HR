@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 
@@ -8,11 +9,11 @@ namespace HR.Api
     {
         public static IEndpointRouteBuilder MapPasswordApi(this IEndpointRouteBuilder endpoints)
         {
-            // Set password for user (if not set)
-            endpoints.MapPost("/api/password/set/{userId}", async (string userId, [FromBody] SetPasswordModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) =>
+            // Set password for current user (if not set)
+            endpoints.MapPost("/api/password/set", async ([FromBody] SetPasswordModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
-                var user = await userManager.FindByIdAsync(userId);
-                if (user == null) return Results.NotFound();
+                var user = await userManager.GetUserAsync(context.User);
+                if (user == null) return Results.Unauthorized();
                 var hasPassword = await userManager.HasPasswordAsync(user);
                 if (hasPassword) return Results.BadRequest("User already has a password.");
                 var result = await userManager.AddPasswordAsync(user, model.NewPassword);
@@ -22,18 +23,18 @@ namespace HR.Api
                     return Results.Ok();
                 }
                 return Results.BadRequest(result.Errors);
-            });
+            }).RequireAuthorization();
 
-            // Check if user has password
-            endpoints.MapGet("/api/password/has/{userId}", async (string userId, UserManager<IdentityUser> userManager) =>
+            // Check if current user has password
+            endpoints.MapGet("/api/password/has-password", async (UserManager<IdentityUser> userManager, HttpContext context) =>
             {
-                var user = await userManager.FindByIdAsync(userId);
-                if (user == null) return Results.NotFound();
+                var user = await userManager.GetUserAsync(context.User);
+                if (user == null) return Results.Unauthorized();
                 var hasPassword = await userManager.HasPasswordAsync(user);
                 return Results.Ok(hasPassword);
-            });
+            }).RequireAuthorization();
 
-            // Change password for user
+            // Change password for user 
             endpoints.MapPost("/api/password/change", async ([FromBody] ChangePasswordModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
@@ -43,21 +44,38 @@ namespace HR.Api
                     return Results.BadRequest(result.Errors.Select(e => e.Description));
                 await signInManager.RefreshSignInAsync(user);
                 return Results.Ok();
-            });
+            }).RequireAuthorization();
 
-            // Forgot password (send reset email)
-            endpoints.MapPost("/api/password/forgot", async ([FromBody] ForgotPasswordModel model, UserManager<IdentityUser> userManager, IEmailSender<IdentityUser> emailSender) =>
+            // Forgot password
+            endpoints.MapPost("/api/password/forgot", async (
+     [FromBody] ForgotPasswordModel model,
+     UserManager<IdentityUser> userManager,
+     IEmailSender emailSender,
+     IHttpContextAccessor httpContextAccessor) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email!);
                 if (user == null || !(await userManager.IsEmailConfirmedAsync(user)))
                     return Results.Ok(); // Don't reveal user existence
+
                 var code = await userManager.GeneratePasswordResetTokenAsync(user);
-                // TODO: Generate callback URL and send email
-                // await emailSender.SendEmailAsync(...)
+                code = System.Web.HttpUtility.UrlEncode(
+                    System.Text.Encoding.UTF8.GetString(
+                        System.Text.Encoding.UTF8.GetBytes(code)
+                    )
+                );
+                var request = httpContextAccessor.HttpContext!.Request;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                var callbackUrl = $"{baseUrl}/account/resetpassword?code={code}";
+
+                await emailSender.SendEmailAsync(
+                    user.Email,
+                    "Reset Password",
+                    $"Please reset your password by <a href='{callbackUrl}'>clicking here</a>.");
+
                 return Results.Ok();
             });
 
-            // Reset password
+            // Reset password - unchanged
             endpoints.MapPost("/api/account/resetpassword", async ([FromBody] ResetPasswordModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email!);
