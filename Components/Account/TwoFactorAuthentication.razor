@@ -43,7 +43,7 @@ else
             <div class="flex-grow-1 position-relative">
                 <span class="form-control-plaintext text-body">Generate new recovery codes.</span>
             </div>
-            <button class="btn btn-outline-danger ms-2" @onclick="GenerateRecoveryCodes">Generate</button>
+            <a href="/account/generaterecoverycodes" class="btn btn-outline-danger ms-2">Generate</a>
         </div>
     }
 
@@ -97,8 +97,6 @@ else
 }
 
 @code {
-    [Parameter] public string? UserId { get; set; }
-
     private bool isLoading = true;
     private bool isProcessing = false;
     private string? loadError;
@@ -112,13 +110,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // You may want to get the userId from the current user context or route
-        if (string.IsNullOrEmpty(UserId))
-        {
-            loadError = "User not found.";
-            isLoading = false;
-            return;
-        }
         await LoadAsync();
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("statusMessage", out var msg))
@@ -133,55 +124,69 @@ else
         loadError = null;
         statusMessage = null;
 
-        var result = await Http.GetFromJsonAsync<TwoFaStatusDto>($"/api/2fa/status/{UserId}");
-        if (result == null)
+        try
         {
-            loadError = "Failed to load 2FA status.";
-            isLoading = false;
-            return;
+            // Use correct endpoint for current user
+            var result = await Http.GetFromJsonAsync<TwoFaStatusDto>("/api/2fa/status");
+            if (result == null)
+            {
+                loadError = "Failed to load 2FA status.";
+                isLoading = false;
+                return;
+            }
+            hasAuthenticator = result.hasAuthenticator;
+            is2faEnabled = result.is2faEnabled;
+            recoveryCodesLeft = result.recoveryCodesLeft;
+
+            // Check if machine is remembered
+            var machineResponse = await Http.PostAsJsonAsync("/api/2fa/is2famachineremembered", new { });
+            if (machineResponse.IsSuccessStatusCode)
+            {
+                var machineResult = await machineResponse.Content.ReadFromJsonAsync<MachineRememberedResponse>();
+                isMachineRemembered = machineResult?.isRemembered ?? false;
+            }
         }
-        hasAuthenticator = result.hasAuthenticator;
-        is2faEnabled = result.is2faEnabled;
-        recoveryCodesLeft = result.recoveryCodesLeft;
-        // You may want to call a separate endpoint for isMachineRemembered if needed
-        isLoading = false;
+        catch (Exception ex)
+        {
+            loadError = $"Error loading 2FA settings: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private async Task ForgetBrowser()
     {
         isProcessing = true;
         statusMessage = null;
-        var response = await Http.PostAsync($"/api/2fa/forget-browser/{UserId}", null);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            statusMessage = "The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.";
-            await LoadAsync();
+            var response = await Http.PostAsync("/api/2fa/forget-browser", null);
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.";
+                await LoadAsync();
+            }
+            else
+            {
+                statusMessage = "Failed to forget browser.";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            statusMessage = "Failed to forget browser.";
+            statusMessage = $"Error: {ex.Message}";
         }
-        isProcessing = false;
+        finally
+        {
+            isProcessing = false;
+        }
     }
 
     private void ConfirmResetAuthenticator()
     {
         showResetAuthenticatorModal = false;
-        NavigationManager.NavigateTo($"/account/resetauthenticator?userId={UserId}");
-    }
-
-    private async Task GenerateRecoveryCodes()
-    {
-        var response = await Http.PostAsync($"/api/2fa/generate-recovery-codes/{UserId}", null);
-        if (response.IsSuccessStatusCode)
-        {
-            statusMessage = "New recovery codes generated.";
-            await LoadAsync();
-        }
-        else
-        {
-            statusMessage = "Failed to generate recovery codes.";
-        }
+        NavigationManager.NavigateTo("/account/resetauthenticator");
     }
 
     public class TwoFaStatusDto
@@ -189,5 +194,9 @@ else
         public bool hasAuthenticator { get; set; }
         public bool is2faEnabled { get; set; }
         public int recoveryCodesLeft { get; set; }
+    }
+    public class MachineRememberedResponse
+    {
+        public bool isRemembered { get; set; }
     }
 }

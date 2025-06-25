@@ -1,5 +1,6 @@
 @page "/account/enableauthenticator"
 @using System.ComponentModel.DataAnnotations
+@using static HR.Api.TwoFactorApi
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
@@ -69,18 +70,37 @@
 }
 @code {
     private string? statusMessage;
-    private bool isLoaded = true;
-    private string sharedKey = "ABCDEF123456"; // Should be fetched from API
+    private bool isLoaded = false;
+    private string sharedKey = "";
+    private string qrCodeUri = "";
     private bool showRecoveryCodes = false;
     private string[]? recoveryCodes;
-    private InputModel inputModel = new();
+    private Enable2faInputModel inputModel = new();
+    private bool qrRendered = false;
 
     protected override async Task OnInitializedAsync()
     {
         // Fetch sharedKey and QR code from API
-        // Example: var result = await Http.GetFromJsonAsync<AuthenticatorSetupDto>("/api/2fa/setup");
-        // sharedKey = result?.SharedKey ?? "";
-        // Optionally render QR code using JS
+        var result = await Http.GetFromJsonAsync<AuthenticatorSetupDto>("/api/2fa/setup");
+        if (result != null)
+        {
+            sharedKey = result.SharedKey;
+            qrCodeUri = result.QrCodeUri;
+            isLoaded = true;
+        }
+        else
+        {
+            statusMessage = "Failed to load authenticator setup information.";
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if ( isLoaded && !string.IsNullOrEmpty(qrCodeUri))
+        {
+            qrRendered = true;
+            await JS.InvokeVoidAsync("renderQrCode", "qrCode", qrCodeUri);
+   }
     }
 
     private async Task OnSubmitAsync()
@@ -104,11 +124,7 @@
         NavigationManager.NavigateTo("/account/manage/2FA", forceLoad: true);
     }
 
-    public class InputModel
-    {
-        [Required]
-        public string Code { get; set; } = string.Empty;
-    }
+  
 
     public class AuthenticatorSetupDto
     {
