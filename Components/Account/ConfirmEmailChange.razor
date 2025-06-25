@@ -1,4 +1,6 @@
 @page "/account/confirmemailchange"
+@using System.Text
+@using Microsoft.AspNetCore.WebUtilities
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 
@@ -14,16 +16,23 @@ else if (!string.IsNullOrEmpty(statusMessage))
 }
 
 @code {
+    [Parameter, SupplyParameterFromQuery]
+    public string? UserId { get; set; }
+
+    [Parameter, SupplyParameterFromQuery]
+    public string? Email { get; set; }
+
+    [Parameter, SupplyParameterFromQuery]
+    public string? Code { get; set; }
+
     private string? statusMessage;
     private bool isLoading = true;
 
     protected override async Task OnInitializedAsync()
     {
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-        if (!query.TryGetValue("userId", out var userId) ||
-            !query.TryGetValue("email", out var email) ||
-            !query.TryGetValue("code", out var code))
+        if (string.IsNullOrEmpty(UserId) ||
+            string.IsNullOrEmpty(Email) ||
+            string.IsNullOrEmpty(Code))
         {
             NavigationManager.NavigateTo("/", forceLoad: true);
             return;
@@ -31,10 +40,12 @@ else if (!string.IsNullOrEmpty(statusMessage))
 
         try
         {
-            var response = await Http.PostAsJsonAsync($"api/user/confirm-email-change", new {
-                UserId = userId.ToString(),
-                Email = email.ToString(),
-                Code = code.ToString()
+            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+            var response = await Http.PostAsJsonAsync($"api/user/confirm-email-change", new
+            {
+                UserId,
+                Email,
+                Code = decodedCode
             });
             if (response.IsSuccessStatusCode)
             {

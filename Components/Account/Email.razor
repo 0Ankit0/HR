@@ -57,7 +57,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var email = await Http.GetFromJsonAsync<EmailDto>("/api/account/email");
+        var email = await Http.GetFromJsonAsync<EmailDto>("/api/user/email");
         if (email != null)
         {
             currentEmail = email.Email;
@@ -68,11 +68,11 @@ else
 
     private async Task HandleChangeEmail()
     {
-        var response = await Http.PostAsJsonAsync("/api/account/changeemail", inputModel);
+        var response = await Http.PostAsJsonAsync("/api/user/changeemail", inputModel);
         if (response.IsSuccessStatusCode)
         {
             statusMessage = "Email changed successfully.";
-            var email = await Http.GetFromJsonAsync<EmailDto>("/api/account/email");
+            var email = await Http.GetFromJsonAsync<EmailDto>("/api/user/email");
             if (email != null)
             {
                 currentEmail = email.Email;
@@ -88,7 +88,7 @@ else
 
     private async Task SendVerificationEmail()
     {
-        var response = await Http.PostAsync("/api/account/sendemailverification", null);
+        var response = await Http.PostAsync("/api/user/sendemailverification", null);
         statusMessage = response.IsSuccessStatusCode ? "Verification email sent." : await response.Content.ReadAsStringAsync();
     }
 

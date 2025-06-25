@@ -1,4 +1,6 @@
 @page "/account/confirmemail"
+@using System.Text
+@using Microsoft.AspNetCore.WebUtilities
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 
@@ -13,25 +15,25 @@ else if (!string.IsNullOrEmpty(statusMessage))
     <div class="alert alert-info">@statusMessage</div>
 }
 @code {
+    [Parameter, SupplyParameterFromQuery]
+    public string? UserId { get; set; }
+
+    [Parameter, SupplyParameterFromQuery]
+    public string? Code { get; set; }
+
     private string? statusMessage;
     private bool isLoading = true;
     private bool shouldRedirect = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-        if (!query.TryGetValue("userId", out var userId) || !query.TryGetValue("code", out var code))
-        {
-            shouldRedirect = true;
-            return;
-        }
-
+      
         try
         {
+            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code!));
             var response = await Http.PostAsJsonAsync($"api/user/confirm-email", new {
-                UserId = userId.ToString(),
-                Code = code.ToString()
+                UserId = UserId,
+                Code = decodedCode
             });
             if (response.IsSuccessStatusCode)
             {
@@ -58,4 +60,5 @@ else if (!string.IsNullOrEmpty(statusMessage))
             NavigationManager.NavigateTo("/", forceLoad: true);
         }
     }
+
 }
