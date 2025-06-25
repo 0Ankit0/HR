@@ -58,7 +58,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/account/phone");
+        var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/user/phone");
         if (phone != null)
         {
             currentPhone = phone.PhoneNumber;
@@ -69,11 +69,11 @@ else
 
     private async Task HandleChangePhone()
     {
-        var response = await Http.PostAsJsonAsync("/api/account/changephone", inputModel);
+        var response = await Http.PostAsJsonAsync("/api/user/changephone", inputModel);
         if (response.IsSuccessStatusCode)
         {
             statusMessage = "Phone number changed successfully.";
-            var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/account/phone");
+            var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/user/phone");
             if (phone != null)
             {
                 currentPhone = phone.PhoneNumber;
@@ -89,7 +89,7 @@ else
 
     private async Task SendVerificationSms()
     {
-        var response = await Http.PostAsync("/api/account/sendphonesms", null);
+        var response = await Http.PostAsync("/api/user/sendphonesms", null);
         statusMessage = response.IsSuccessStatusCode ? "Verification SMS sent." : await response.Content.ReadAsStringAsync();
     }
 
