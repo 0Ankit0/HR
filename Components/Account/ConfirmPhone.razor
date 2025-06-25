@@ -19,26 +19,17 @@
 @code {  
     private string code = string.Empty;  
     private string? statusMessage;  
-    private string? phoneNo;  
-
-    protected override void OnInitialized()  
-    {  
-        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);  
-        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);  
-        if (query.TryGetValue("phoneNo", out var value))  
-        {  
-            phoneNo = value;  
-        }  
-    }  
+    [Parameter,SupplyParameterFromQuery]
+    public string PhoneNo { get; set; } = string.Empty; 
 
     private async Task ConfirmCode()  
     {  
-        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(phoneNo))  
+        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(PhoneNo))
         {  
             statusMessage = "Please enter a code and phone number.";  
             return;  
         }  
-        var response = await Http.PostAsJsonAsync("/api/account/confirmphone", new { code, phoneNo });  
+        var response = await Http.PostAsJsonAsync("/api/user/confirmphone", new { PhoneNumber = PhoneNo, Code = code });
         if (response.IsSuccessStatusCode)  
         {  
             statusMessage = "Phone number confirmed successfully.";  

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using static HR.Components.Account.ExternalLogins;
 
 namespace HR.Api
 {
@@ -133,17 +134,7 @@ namespace HR.Api
             //        return Results.Ok(new { message = "You have been logged out." });
             //    }).RequireAuthorization();
 
-            endpoints.MapPost("/api/account/is2famachineremembered", async (
-          [FromBody] IdentityUser user,
-          UserManager<IdentityUser> userManager,
-          SignInManager<IdentityUser> signInManager) =>
-            {
-                if (user == null)
-                    return Results.NotFound();
-
-                var isRemembered = await signInManager.IsTwoFactorClientRememberedAsync(user);
-                return Results.Ok(new MachineRememberedResponse { isRemembered = isRemembered });
-            });
+           
             endpoints.MapPost("/api/account/loginwithrecoverycode", async (
         [FromForm] RecoveryCodeLoginRequest model,
         SignInManager<IdentityUser> signInManager,
@@ -181,26 +172,6 @@ namespace HR.Api
                 return Results.Ok();
             });
 
-            // Change email
-            endpoints.MapPost("/api/account/changeemail", async ([FromBody] ChangeEmailModel model, UserManager<IdentityUser> userManager) =>
-            {
-                var user = await userManager.FindByEmailAsync(model.CurrentEmail);
-                if (user == null) return Results.NotFound();
-                var result = await userManager.SetEmailAsync(user, model.NewEmail);
-                if (!result.Succeeded) return Results.BadRequest(result.Errors);
-                return Results.Ok();
-            });
-
-            // Change phone
-            endpoints.MapPost("/api/account/changephone", async ([FromBody] ChangePhoneModel model, UserManager<IdentityUser> userManager) =>
-            {
-                var user = await userManager.FindByEmailAsync(model.Email);
-                if (user == null) return Results.NotFound();
-                var result = await userManager.SetPhoneNumberAsync(user, model.NewPhone);
-                if (!result.Succeeded) return Results.BadRequest(result.Errors);
-                return Results.Ok();
-            });
-
             // Get profile
             endpoints.MapGet("/api/account/profile", async (UserManager<IdentityUser> userManager, HttpContext context) =>
             {
@@ -214,7 +185,6 @@ namespace HR.Api
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
-                // TODO: Gather all personal data
                 return Results.Ok(new { user.UserName, user.Email, user.PhoneNumber });
             });
 
@@ -223,7 +193,6 @@ namespace HR.Api
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
-                // TODO: Gather all personal data as JSON
                 return Results.Ok(System.Text.Json.JsonSerializer.Serialize(new { user.UserName, user.Email, user.PhoneNumber }));
             });
 
@@ -244,30 +213,73 @@ namespace HR.Api
             });
 
             // Resend email confirmation
-            endpoints.MapPost("/api/account/resendemailconfirmation", async ([FromBody] ResendEmailConfirmationModel model, UserManager<IdentityUser> userManager, IEmailSender<IdentityUser> emailSender) =>
+            endpoints.MapPost("/api/account/resendemailconfirmation", async ([FromBody] ResendEmailConfirmationModel model, UserManager<IdentityUser> userManager, IEmailSender emailSender, HttpContext context) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email);
                 if (user == null) return Results.Ok();
-                // TODO: Send confirmation email
+
+                var code = await userManager.GenerateEmailConfirmationTokenAsync(user);
+                code = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(code));
+                var userId = user.Id;
+                var request = context.Request;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                var confirmationUrl = $"{baseUrl}/account/confirmemail?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+
+                await emailSender.SendEmailAsync(
+                    user.Email,
+                    "Confirm your email",
+                    $"Please confirm your account by <a href='{confirmationUrl}'>clicking here</a>.");
+
                 return Results.Ok();
             });
 
+
             // Unlock account
-            endpoints.MapPost("/api/account/unlock", async ([FromBody] UnlockModel model, UserManager<IdentityUser> userManager) =>
+            endpoints.MapPost("/api/account/unlock", async (
+                [FromBody] UnlockModel model,
+                UserManager<IdentityUser> userManager) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email);
                 if (user == null) return Results.NotFound();
-                // TODO: Validate code and unlock
+
+                // No decoding needed, use the code directly
+                var isValid = await userManager.VerifyUserTokenAsync(
+                    user, TokenOptions.DefaultProvider, "RemoveLockout", model.Code);
+
+                if (!isValid)
+                    return Results.BadRequest("Invalid or expired unlock code.");
+
                 await userManager.SetLockoutEndDateAsync(user, null);
                 return Results.Ok();
             });
 
             // Request unlock
-            endpoints.MapPost("/api/account/requestunlock", async ([FromBody] RequestUnlockModel model, UserManager<IdentityUser> userManager, IEmailSender<IdentityUser> emailSender) =>
+            endpoints.MapPost("/api/account/requestunlock", async (
+    [FromBody] RequestUnlockModel model,
+    UserManager<IdentityUser> userManager,
+    IEmailSender emailSender,
+    HttpContext context) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email);
                 if (user == null) return Results.Ok();
-                // TODO: Send unlock code
+
+                var code = await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultProvider, "RemoveLockout");
+                var encodedCode = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(code));
+                var request = context.Request;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                var unlockUrl = $"{baseUrl}/account/unlock?email={Uri.EscapeDataString(model.Email)}&code={Uri.EscapeDataString(encodedCode)}";
+
+                var emailBody = $@"
+        <p>Your account is locked out. Click the link below to unlock your account:</p>
+        <p><a href=""{unlockUrl}"">Unlock Account</a></p>
+        <p>If you did not request this, you can ignore this email.</p>
+    ";
+
+                await emailSender.SendEmailAsync(
+                    user.Email,
+                    "Unlock your account",
+                    emailBody);
+
                 return Results.Ok();
             });
 
@@ -279,12 +291,39 @@ namespace HR.Api
             });
 
             // List/manage linked external logins for current user
-            endpoints.MapGet("/api/account/externallogins/manage", async (UserManager<IdentityUser> userManager, HttpContext context) =>
+            endpoints.MapGet("/api/account/externallogins/manage", async (SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
+
                 var logins = await userManager.GetLoginsAsync(user);
-                return Results.Ok(logins);
+                var schemes = await signInManager.GetExternalAuthenticationSchemesAsync();
+
+                var currentLogins = logins.Select(l => new ExternalLoginDto
+                {
+                    Name = l.LoginProvider,
+                    DisplayName = l.ProviderDisplayName ?? l.LoginProvider,
+                    ProviderDisplayName = l.ProviderDisplayName,
+                    LoginProvider = l.LoginProvider,
+                    ProviderKey = l.ProviderKey
+                }).ToList();
+
+                var otherLogins = schemes
+                    .Where(s => !logins.Any(l => l.LoginProvider == s.Name))
+                    .Select(s => new ExternalLoginDto
+                    {
+                        Name = s.Name,
+                        DisplayName = s.DisplayName ?? s.Name,
+                        ProviderDisplayName = s.DisplayName,
+                        LoginProvider = (string?)null,
+                        ProviderKey = (string?)null
+                    }).ToList();
+
+                return Results.Ok(new ExternalLoginsResult
+                {
+                    CurrentLogins = currentLogins,
+                    OtherLogins = otherLogins
+                });
             });
 
             // Remove an external login
@@ -305,59 +344,6 @@ namespace HR.Api
                 return Results.Ok();
             });
 
-            // Get current user's email
-            endpoints.MapGet("/api/account/email", async (UserManager<IdentityUser> userManager, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                return Results.Ok(new { user.Email });
-            });
-
-            // Send email verification
-            endpoints.MapPost("/api/account/sendemailverification", async (UserManager<IdentityUser> userManager, IEmailSender<IdentityUser> emailSender, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                // TODO: Send verification email
-                return Results.Ok();
-            });
-
-            // Get current user's phone number
-            endpoints.MapGet("/api/account/phone", async (UserManager<IdentityUser> userManager, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                return Results.Ok(new { user.PhoneNumber });
-            });
-
-            // Send phone verification SMS
-            endpoints.MapPost("/api/account/sendphonesms", async (UserManager<IdentityUser> userManager, ISmsSender smsSender, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                // TODO: Send SMS
-                return Results.Ok();
-            });
-
-            // Confirm phone number
-            endpoints.MapPost("/api/account/confirmphone", async ([FromBody] ConfirmPhoneModel model, UserManager<IdentityUser> userManager, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                var result = await userManager.ChangePhoneNumberAsync(user, model.PhoneNumber, model.Code);
-                if (!result.Succeeded) return Results.BadRequest(result.Errors);
-                return Results.Ok();
-            });
-
-            // Change username
-            endpoints.MapPost("/api/account/changeusername", async ([FromBody] ChangeUsernameModel model, UserManager<IdentityUser> userManager, HttpContext context) =>
-            {
-                var user = await userManager.GetUserAsync(context.User);
-                if (user == null) return Results.Unauthorized();
-                var result = await userManager.SetUserNameAsync(user, model.NewUsername);
-                if (!result.Succeeded) return Results.BadRequest(result.Errors);
-                return Results.Ok();
-            });
 
             // Delete personal data (DELETE)
             endpoints.MapDelete("/api/account/personaldata", async (UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
@@ -368,6 +354,64 @@ namespace HR.Api
                 if (!result.Succeeded) return Results.BadRequest(result.Errors);
                 await signInManager.SignOutAsync();
                 return Results.Ok();
+            });
+            endpoints.MapGet("/api/account/registerconfirmation", async (
+    [FromQuery] string email,
+    UserManager<IdentityUser> userManager,
+    HttpContext context) =>
+            {
+#if DEBUG
+                if (string.IsNullOrEmpty(email))
+                    return Results.BadRequest();
+
+                var user = await userManager.FindByEmailAsync(email);
+                if (user == null)
+                    return Results.NotFound();
+
+                var code = await userManager.GenerateEmailConfirmationTokenAsync(user);
+                code = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(code));
+                var userId = user.Id;
+                var request = context.Request;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                var confirmationUrl = $"{baseUrl}/account/confirmemail?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+
+                return Results.Ok(new { ConfirmationUrl = confirmationUrl });
+#else
+    return Results.NotFound();
+#endif
+            });
+
+            // Reset password endpoint
+            endpoints.MapPost("/api/account/resetpassword", async (
+                [FromBody] ResetPasswordModel model,
+                UserManager<IdentityUser> userManager) =>
+            {
+                if (string.IsNullOrWhiteSpace(model.Email) ||
+                    string.IsNullOrWhiteSpace(model.Password) ||
+                    string.IsNullOrWhiteSpace(model.ConfirmPassword) ||
+                    string.IsNullOrWhiteSpace(model.Code))
+                {
+                    return Results.BadRequest("All fields are required.");
+                }
+
+                if (model.Password != model.ConfirmPassword)
+                {
+                    return Results.BadRequest("Passwords do not match.");
+                }
+
+                var user = await userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    // Do not reveal that the user does not exist
+                    return Results.Ok();
+                }
+
+                var result = await userManager.ResetPasswordAsync(user, model.Code, model.Password);
+                if (result.Succeeded)
+                {
+                    return Results.Ok();
+                }
+                return Results.BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));
             });
 
             return endpoints;
@@ -421,7 +465,7 @@ namespace HR.Api
     public class UnlockModel
     {
         public string Email { get; set; } = string.Empty;
-        public string EncodedCode { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty; 
     }
     public class RequestUnlockModel
     {
@@ -431,4 +475,11 @@ namespace HR.Api
     public class LinkLoginModel { public string Provider { get; set; } = string.Empty; }
     public class ConfirmPhoneModel { public string PhoneNumber { get; set; } = string.Empty; public string Code { get; set; } = string.Empty; }
     public class ChangeUsernameModel { public string NewUsername { get; set; } = string.Empty; }
+    public class ResetPasswordModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+    }
 }
