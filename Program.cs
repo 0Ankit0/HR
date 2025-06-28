@@ -61,11 +61,8 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.MapAccountApi();
-app.MapPasswordApi();
-app.MapRoleApi();
-app.MapTwoFactorApi();
-app.MapUserApi();
+// Register all API endpoints via reflection
+app.RegisterAllApiEndpoints();
 
 
 app.Run();
