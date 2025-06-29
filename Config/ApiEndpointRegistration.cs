@@ -20,6 +20,9 @@ namespace HR.Config
                     api.MapApi(endpoints);
                 }
             }
+
+            // If using reflection, no change needed. If manual, add:
+            // endpoints.MapApi(new BenefitApi());
         }
     }
 }
