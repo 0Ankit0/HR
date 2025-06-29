@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -21,32 +22,62 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(d => new DepartmentResponse
+                    {
+                        Department_ID = d.Department_ID,
+                        Department_Name = d.Department_Name,
+                        Department_Location = d.Department_Location,
+                        ManagerID = d.ManagerID
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
 
             endpoints.MapGet("/api/departments/{id}", async (int id, AuthDbContext db) =>
-                await db.Departments.FindAsync(id) is Department d ? Results.Ok(d) : Results.NotFound());
+                await db.Departments.FindAsync(id) is Department d ?
+                    Results.Ok(new DepartmentResponse
+                    {
+                        Department_ID = d.Department_ID,
+                        Department_Name = d.Department_Name,
+                        Department_Location = d.Department_Location,
+                        ManagerID = d.ManagerID
+                    }) : Results.NotFound());
 
-            endpoints.MapPost("/api/departments", async (Department department, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPost("/api/departments", async (DepartmentRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                department.CreatedAt = DateTime.UtcNow;
-                department.CreatedBy = ctx.User?.Identity?.Name;
+                var department = new Department
+                {
+                    Department_Name = reqModel.Department_Name,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Departments.Add(department);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/departments/{department.Department_ID}", department);
+                var response = new DepartmentResponse
+                {
+                    Department_ID = department.Department_ID,
+                    Department_Name = department.Department_Name,
+                    Department_Location = department.Department_Location,
+                    ManagerID = department.ManagerID
+                };
+                return Results.Created($"/api/departments/{department.Department_ID}", response);
             });
-            endpoints.MapPut("/api/departments/{id}", async (int id, Department updated, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPut("/api/departments/{id}", async (int id, DepartmentRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var department = await db.Departments.FindAsync(id);
                 if (department is null) return Results.NotFound();
-                department.Department_Name = updated.Department_Name;
-                department.Department_Location = updated.Department_Location;
-                department.ManagerID = updated.ManagerID;
+                department.Department_Name = reqModel.Department_Name;
                 department.UpdatedAt = DateTime.UtcNow;
                 department.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(department);
+                var response = new DepartmentResponse
+                {
+                    Department_ID = department.Department_ID,
+                    Department_Name = department.Department_Name,
+                    Department_Location = department.Department_Location,
+                    ManagerID = department.ManagerID
+                };
+                return Results.Ok(response);
             });
             endpoints.MapDelete("/api/departments/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

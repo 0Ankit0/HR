@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -23,33 +24,68 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(et => new EmployeeTrainingResponse
+                    {
+                        Employee_Training_ID = et.Employee_Training_ID,
+                        Employee_ID = et.Employee_ID,
+                        Training_ID = et.Training_ID,
+                        Completion_Date = et.Completion_Date,
+                        Score = et.Score
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
 
             endpoints.MapGet("/api/employeetrainings/{id}", async (int id, AuthDbContext db) =>
-                await db.Employee_Trainings.FindAsync(id) is Employee_Training et ? Results.Ok(et) : Results.NotFound());
+                await db.Employee_Trainings.FindAsync(id) is Employee_Training et ?
+                    Results.Ok(new EmployeeTrainingResponse
+                    {
+                        Employee_Training_ID = et.Employee_Training_ID,
+                        Employee_ID = et.Employee_ID,
+                        Training_ID = et.Training_ID,
+                        Completion_Date = et.Completion_Date,
+                        Score = et.Score
+                    }) : Results.NotFound());
 
-            endpoints.MapPost("/api/employeetrainings", async (Employee_Training et, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPost("/api/employeetrainings", async (EmployeeTrainingRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                et.CreatedAt = DateTime.UtcNow;
-                et.CreatedBy = ctx.User?.Identity?.Name;
+                var et = new Employee_Training
+                {
+                    Employee_ID = reqModel.Employee_ID,
+                    Training_ID = reqModel.Training_ID,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Employee_Trainings.Add(et);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/employeetrainings/{et.Employee_Training_ID}", et);
+                var response = new EmployeeTrainingResponse
+                {
+                    Employee_Training_ID = et.Employee_Training_ID,
+                    Employee_ID = et.Employee_ID,
+                    Training_ID = et.Training_ID,
+                    Completion_Date = et.Completion_Date,
+                    Score = et.Score
+                };
+                return Results.Created($"/api/employeetrainings/{et.Employee_Training_ID}", response);
             });
-            endpoints.MapPut("/api/employeetrainings/{id}", async (int id, Employee_Training updated, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPut("/api/employeetrainings/{id}", async (int id, EmployeeTrainingRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var et = await db.Employee_Trainings.FindAsync(id);
                 if (et is null) return Results.NotFound();
-                et.Employee_ID = updated.Employee_ID;
-                et.Training_ID = updated.Training_ID;
-                et.Completion_Date = updated.Completion_Date;
-                et.Score = updated.Score;
+                et.Employee_ID = reqModel.Employee_ID;
+                et.Training_ID = reqModel.Training_ID;
                 et.UpdatedAt = DateTime.UtcNow;
                 et.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(et);
+                var response = new EmployeeTrainingResponse
+                {
+                    Employee_Training_ID = et.Employee_Training_ID,
+                    Employee_ID = et.Employee_ID,
+                    Training_ID = et.Training_ID,
+                    Completion_Date = et.Completion_Date,
+                    Score = et.Score
+                };
+                return Results.Ok(response);
             });
             endpoints.MapDelete("/api/employeetrainings/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Routing;
 using HR.Data;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -24,35 +25,71 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(b => new BenefitResponse
+                    {
+                        Benefit_ID = b.Benefit_ID,
+                        BenefitType = b.BenefitType,
+                        Provider = b.Provider,
+                        PolicyNumber = b.PolicyNumber,
+                        EnrollmentDate = b.EnrollmentDate,
+                        Employee_ID = b.Employee_ID
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             endpoints.MapGet("/api/benefits/{id}", async (int id, AuthDbContext db) =>
-                await db.Benefits.Include(b => b.Employee).FirstOrDefaultAsync(b => b.Benefit_ID == id && !b.IsDeleted) is Benefit benefit
-                    ? Results.Ok(benefit)
+                await db.Benefits.Include(b => b.Employee).FirstOrDefaultAsync(b => b.Benefit_ID == id && !b.IsDeleted) is Benefit b
+                    ? Results.Ok(new BenefitResponse
+                    {
+                        Benefit_ID = b.Benefit_ID,
+                        BenefitType = b.BenefitType,
+                        Provider = b.Provider,
+                        PolicyNumber = b.PolicyNumber,
+                        EnrollmentDate = b.EnrollmentDate,
+                        Employee_ID = b.Employee_ID
+                    })
                     : Results.NotFound());
-            endpoints.MapPost("/api/benefits", async (Benefit benefit, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPost("/api/benefits", async (BenefitRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                benefit.CreatedAt = DateTime.UtcNow;
-                benefit.CreatedBy = ctx.User?.Identity?.Name;
+                var benefit = new Benefit
+                {
+                    BenefitType = reqModel.BenefitType,
+                    Employee_ID = reqModel.Employee_ID,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Benefits.Add(benefit);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/benefits/{benefit.Benefit_ID}", benefit);
+                var response = new BenefitResponse
+                {
+                    Benefit_ID = benefit.Benefit_ID,
+                    BenefitType = benefit.BenefitType,
+                    Provider = benefit.Provider,
+                    PolicyNumber = benefit.PolicyNumber,
+                    EnrollmentDate = benefit.EnrollmentDate,
+                    Employee_ID = benefit.Employee_ID
+                };
+                return Results.Created($"/api/benefits/{benefit.Benefit_ID}", response);
             });
-            endpoints.MapPut("/api/benefits/{id}", async (int id, Benefit updated, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPut("/api/benefits/{id}", async (int id, BenefitRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var benefit = await db.Benefits.FindAsync(id);
                 if (benefit is null) return Results.NotFound();
-                benefit.BenefitType = updated.BenefitType;
-                benefit.Provider = updated.Provider;
-                benefit.PolicyNumber = updated.PolicyNumber;
-                benefit.EnrollmentDate = updated.EnrollmentDate;
-                benefit.EndDate = updated.EndDate;
-                benefit.Employee_ID = updated.Employee_ID;
+                benefit.BenefitType = reqModel.BenefitType;
+                benefit.Employee_ID = reqModel.Employee_ID;
                 benefit.UpdatedAt = DateTime.UtcNow;
                 benefit.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(benefit);
+                var response = new BenefitResponse
+                {
+                    Benefit_ID = benefit.Benefit_ID,
+                    BenefitType = benefit.BenefitType,
+                    Provider = benefit.Provider,
+                    PolicyNumber = benefit.PolicyNumber,
+                    EnrollmentDate = benefit.EnrollmentDate,
+                    Employee_ID = benefit.Employee_ID
+                };
+                return Results.Ok(response);
             });
             endpoints.MapDelete("/api/benefits/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

@@ -26,33 +26,65 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(a => new HR.Models.AwardResponse
+                    {
+                        Award_ID = a.Award_ID,
+                        Title = a.Title,
+                        Description = a.Description,
+                        DateAwarded = a.DateAwarded,
+                        Employee_ID = a.Employee_ID
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             group.MapGet("/awards/{id}", async (int id, AuthDbContext db) =>
                 await db.Awards.Include(a => a.Employee).FirstOrDefaultAsync(a => a.Award_ID == id && !a.IsDeleted) is Award award
-                    ? Results.Ok(award)
+                    ? Results.Ok(new HR.Models.AwardResponse
+                    {
+                        Award_ID = award.Award_ID,
+                        Title = award.Title,
+                        Description = award.Description,
+                        DateAwarded = award.DateAwarded,
+                        Employee_ID = award.Employee_ID
+                    })
                     : Results.NotFound());
-            group.MapPost("/awards", async (Award award, AuthDbContext db, HttpContext ctx) =>
+            group.MapPost("/awards", async (HR.Models.AwardRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                award.CreatedAt = DateTime.UtcNow;
-                award.CreatedBy = ctx.User?.Identity?.Name;
+                var award = new Award
+                {
+                    Title = reqModel.Title,
+                    Employee_ID = reqModel.Employee_ID,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Awards.Add(award);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/recognition/awards/{award.Award_ID}", award);
+                return Results.Created($"/api/recognition/awards/{award.Award_ID}", new HR.Models.AwardResponse
+                {
+                    Award_ID = award.Award_ID,
+                    Title = award.Title,
+                    Description = award.Description,
+                    DateAwarded = award.DateAwarded,
+                    Employee_ID = award.Employee_ID
+                });
             });
-            group.MapPut("/awards/{id}", async (int id, Award updated, AuthDbContext db, HttpContext ctx) =>
+            group.MapPut("/awards/{id}", async (int id, HR.Models.AwardRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var award = await db.Awards.FindAsync(id);
                 if (award is null) return Results.NotFound();
-                award.Title = updated.Title;
-                award.Description = updated.Description;
-                award.DateAwarded = updated.DateAwarded;
-                award.Employee_ID = updated.Employee_ID;
+                award.Title = reqModel.Title;
+                award.Employee_ID = reqModel.Employee_ID;
                 award.UpdatedAt = DateTime.UtcNow;
                 award.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(award);
+                return Results.Ok(new HR.Models.AwardResponse
+                {
+                    Award_ID = award.Award_ID,
+                    Title = award.Title,
+                    Description = award.Description,
+                    DateAwarded = award.DateAwarded,
+                    Employee_ID = award.Employee_ID
+                });
             });
             group.MapDelete("/awards/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {
@@ -79,33 +111,65 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(n => new HR.Models.NominationResponse
+                    {
+                        Nomination_ID = n.Nomination_ID,
+                        Employee_ID = n.Employee_ID,
+                        Reason = n.Reason,
+                        DateNominated = n.DateNominated,
+                        IsAwarded = n.IsAwarded
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             group.MapGet("/nominations/{id}", async (int id, AuthDbContext db) =>
                 await db.Nominations.Include(n => n.Employee).FirstOrDefaultAsync(n => n.Nomination_ID == id && !n.IsDeleted) is Nomination nomination
-                    ? Results.Ok(nomination)
+                    ? Results.Ok(new HR.Models.NominationResponse
+                    {
+                        Nomination_ID = nomination.Nomination_ID,
+                        Employee_ID = nomination.Employee_ID,
+                        Reason = nomination.Reason,
+                        DateNominated = nomination.DateNominated,
+                        IsAwarded = nomination.IsAwarded
+                    })
                     : Results.NotFound());
-            group.MapPost("/nominations", async (Nomination nomination, AuthDbContext db, HttpContext ctx) =>
+            group.MapPost("/nominations", async (HR.Models.NominationRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                nomination.CreatedAt = DateTime.UtcNow;
-                nomination.CreatedBy = ctx.User?.Identity?.Name;
+                var nomination = new Nomination
+                {
+                    Employee_ID = reqModel.Employee_ID,
+                    Reason = reqModel.Reason,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Nominations.Add(nomination);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/recognition/nominations/{nomination.Nomination_ID}", nomination);
+                return Results.Created($"/api/recognition/nominations/{nomination.Nomination_ID}", new HR.Models.NominationResponse
+                {
+                    Nomination_ID = nomination.Nomination_ID,
+                    Employee_ID = nomination.Employee_ID,
+                    Reason = nomination.Reason,
+                    DateNominated = nomination.DateNominated,
+                    IsAwarded = nomination.IsAwarded
+                });
             });
-            group.MapPut("/nominations/{id}", async (int id, Nomination updated, AuthDbContext db, HttpContext ctx) =>
+            group.MapPut("/nominations/{id}", async (int id, HR.Models.NominationRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var nomination = await db.Nominations.FindAsync(id);
                 if (nomination is null) return Results.NotFound();
-                nomination.Reason = updated.Reason;
-                nomination.DateNominated = updated.DateNominated;
-                nomination.IsAwarded = updated.IsAwarded;
-                nomination.Employee_ID = updated.Employee_ID;
+                nomination.Employee_ID = reqModel.Employee_ID;
+                nomination.Reason = reqModel.Reason;
                 nomination.UpdatedAt = DateTime.UtcNow;
                 nomination.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(nomination);
+                return Results.Ok(new HR.Models.NominationResponse
+                {
+                    Nomination_ID = nomination.Nomination_ID,
+                    Employee_ID = nomination.Employee_ID,
+                    Reason = nomination.Reason,
+                    DateNominated = nomination.DateNominated,
+                    IsAwarded = nomination.IsAwarded
+                });
             });
             group.MapDelete("/nominations/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

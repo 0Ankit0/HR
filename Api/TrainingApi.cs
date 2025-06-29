@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -21,31 +22,54 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(t => new TrainingResponse
+                    {
+                        Training_ID = t.Training_ID,
+                        Title = t.Title,
+                        Date = t.Date
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
 
             endpoints.MapGet("/api/trainings/{id}", async (int id, AuthDbContext db) =>
-                await db.Trainings.FindAsync(id) is Training t ? Results.Ok(t) : Results.NotFound());
+                await db.Trainings.FindAsync(id) is Training t ?
+                    Results.Ok(new TrainingResponse
+                    {
+                        Training_ID = t.Training_ID,
+                        Title = t.Title,
+                        Date = t.Date
+                    }) : Results.NotFound());
 
-            endpoints.MapPost("/api/trainings", async (Training training, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPost("/api/trainings", async (TrainingRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                training.CreatedAt = DateTime.UtcNow;
-                training.CreatedBy = ctx.User?.Identity?.Name;
+                var training = new Training
+                {
+                    Title = reqModel.Title,
+                    Date = reqModel.Date
+                };
                 db.Trainings.Add(training);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/trainings/{training.Training_ID}", training);
+                return Results.Created($"/api/trainings/{training.Training_ID}", new TrainingResponse
+                {
+                    Training_ID = training.Training_ID,
+                    Title = training.Title,
+                    Date = training.Date
+                });
             });
-            endpoints.MapPut("/api/trainings/{id}", async (int id, Training updated, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPut("/api/trainings/{id}", async (int id, TrainingRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var training = await db.Trainings.FindAsync(id);
                 if (training is null) return Results.NotFound();
-                training.Title = updated.Title;
-                training.Date = updated.Date;
-                training.UpdatedAt = DateTime.UtcNow;
-                training.UpdatedBy = ctx.User?.Identity?.Name;
+                training.Title = reqModel.Title;
+                training.Date = reqModel.Date;
                 await db.SaveChangesAsync();
-                return Results.Ok(training);
+                return Results.Ok(new TrainingResponse
+                {
+                    Training_ID = training.Training_ID,
+                    Title = training.Title,
+                    Date = training.Date
+                });
             });
             endpoints.MapDelete("/api/trainings/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

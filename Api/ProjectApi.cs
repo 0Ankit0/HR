@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -21,32 +22,60 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(p => new ProjectResponse
+                    {
+                        Project_ID = p.Project_ID,
+                        Project_Name = p.Project_Name,
+                        Deadline = p.Deadline,
+                        Budget = p.Budget
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
 
             endpoints.MapGet("/api/projects/{id}", async (int id, AuthDbContext db) =>
-                await db.Projects.FindAsync(id) is Project p ? Results.Ok(p) : Results.NotFound());
+                await db.Projects.FindAsync(id) is Project p ?
+                    Results.Ok(new ProjectResponse
+                    {
+                        Project_ID = p.Project_ID,
+                        Project_Name = p.Project_Name,
+                        Deadline = p.Deadline,
+                        Budget = p.Budget
+                    }) : Results.NotFound());
 
-            endpoints.MapPost("/api/projects", async (Project project, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPost("/api/projects", async (ProjectRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                project.CreatedAt = DateTime.UtcNow;
-                project.CreatedBy = ctx.User?.Identity?.Name;
+                var project = new Project
+                {
+                    Project_Name = reqModel.Project_Name,
+                    Deadline = reqModel.Deadline,
+                    Budget = reqModel.Budget
+                };
                 db.Projects.Add(project);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/projects/{project.Project_ID}", project);
+                return Results.Created($"/api/projects/{project.Project_ID}", new ProjectResponse
+                {
+                    Project_ID = project.Project_ID,
+                    Project_Name = project.Project_Name,
+                    Deadline = project.Deadline,
+                    Budget = project.Budget
+                });
             });
-            endpoints.MapPut("/api/projects/{id}", async (int id, Project updated, AuthDbContext db, HttpContext ctx) =>
+            endpoints.MapPut("/api/projects/{id}", async (int id, ProjectRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var project = await db.Projects.FindAsync(id);
                 if (project is null) return Results.NotFound();
-                project.Project_Name = updated.Project_Name;
-                project.Deadline = updated.Deadline;
-                project.Budget = updated.Budget;
-                project.UpdatedAt = DateTime.UtcNow;
-                project.UpdatedBy = ctx.User?.Identity?.Name;
+                project.Project_Name = reqModel.Project_Name;
+                project.Deadline = reqModel.Deadline;
+                project.Budget = reqModel.Budget;
                 await db.SaveChangesAsync();
-                return Results.Ok(project);
+                return Results.Ok(new ProjectResponse
+                {
+                    Project_ID = project.Project_ID,
+                    Project_Name = project.Project_Name,
+                    Deadline = project.Deadline,
+                    Budget = project.Budget
+                });
             });
             endpoints.MapDelete("/api/projects/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

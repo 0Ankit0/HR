@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
+using HR.Models;
 
 namespace HR.Api
 {
@@ -26,33 +27,67 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(f => new FeedbackResponse
+                    {
+                        Feedback_ID = f.Feedback_ID,
+                        Employee_ID = f.Employee_ID,
+                        Content = f.Content,
+                        DateGiven = f.DateGiven,
+                        GivenBy = f.GivenBy
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             group.MapGet("/continuous/{id}", async (int id, AuthDbContext db) =>
                 await db.Feedbacks.Include(f => f.Employee).FirstOrDefaultAsync(f => f.Feedback_ID == id && !f.IsDeleted) is Feedback feedback
-                    ? Results.Ok(feedback)
+                    ? Results.Ok(new FeedbackResponse
+                    {
+                        Feedback_ID = feedback.Feedback_ID,
+                        Employee_ID = feedback.Employee_ID,
+                        Content = feedback.Content,
+                        DateGiven = feedback.DateGiven,
+                        GivenBy = feedback.GivenBy
+                    })
                     : Results.NotFound());
-            group.MapPost("/continuous", async (Feedback feedback, AuthDbContext db, HttpContext ctx) =>
+            group.MapPost("/continuous", async (FeedbackRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                feedback.CreatedAt = DateTime.UtcNow;
-                feedback.CreatedBy = ctx.User?.Identity?.Name;
+                var feedback = new Feedback
+                {
+                    Employee_ID = reqModel.Employee_ID,
+                    Content = reqModel.Content,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Feedbacks.Add(feedback);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/feedback/continuous/{feedback.Feedback_ID}", feedback);
+                var response = new FeedbackResponse
+                {
+                    Feedback_ID = feedback.Feedback_ID,
+                    Employee_ID = feedback.Employee_ID,
+                    Content = feedback.Content,
+                    DateGiven = feedback.DateGiven,
+                    GivenBy = feedback.GivenBy
+                };
+                return Results.Created($"/api/feedback/continuous/{feedback.Feedback_ID}", response);
             });
-            group.MapPut("/continuous/{id}", async (int id, Feedback updated, AuthDbContext db, HttpContext ctx) =>
+            group.MapPut("/continuous/{id}", async (int id, FeedbackRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var feedback = await db.Feedbacks.FindAsync(id);
                 if (feedback is null) return Results.NotFound();
-                feedback.Content = updated.Content;
-                feedback.DateGiven = updated.DateGiven;
-                feedback.GivenBy = updated.GivenBy;
-                feedback.Employee_ID = updated.Employee_ID;
+                feedback.Employee_ID = reqModel.Employee_ID;
+                feedback.Content = reqModel.Content;
                 feedback.UpdatedAt = DateTime.UtcNow;
                 feedback.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(feedback);
+                var response = new FeedbackResponse
+                {
+                    Feedback_ID = feedback.Feedback_ID,
+                    Employee_ID = feedback.Employee_ID,
+                    Content = feedback.Content,
+                    DateGiven = feedback.DateGiven,
+                    GivenBy = feedback.GivenBy
+                };
+                return Results.Ok(response);
             });
             group.MapDelete("/continuous/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

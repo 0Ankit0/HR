@@ -25,34 +25,67 @@ namespace HR.Api
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
+                    .Select(i => new HR.Models.InterviewResponse
+                    {
+                        Interview_ID = i.Interview_ID,
+                        Application_ID = i.Application_ID,
+                        ScheduledAt = i.ScheduledAt,
+                        Interviewer = i.Interviewer,
+                        Status = i.Status
+                    }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             group.MapGet("/schedule/{id}", async (int id, AuthDbContext db) =>
                 await db.Interviews.Include(i => i.Application).FirstOrDefaultAsync(i => i.Interview_ID == id && !i.IsDeleted) is Interview interview
-                    ? Results.Ok(interview)
+                    ? Results.Ok(new HR.Models.InterviewResponse
+                    {
+                        Interview_ID = interview.Interview_ID,
+                        Application_ID = interview.Application_ID,
+                        ScheduledAt = interview.ScheduledAt,
+                        Interviewer = interview.Interviewer,
+                        Status = interview.Status
+                    })
                     : Results.NotFound());
-            group.MapPost("/schedule", async (Interview interview, AuthDbContext db, HttpContext ctx) =>
+            group.MapPost("/schedule", async (HR.Models.InterviewRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                interview.CreatedAt = DateTime.UtcNow;
-                interview.CreatedBy = ctx.User?.Identity?.Name;
+                var interview = new Interview
+                {
+                    Application_ID = reqModel.Application_ID,
+                    ScheduledAt = reqModel.ScheduledAt,
+                    Interviewer = reqModel.Interviewer,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
+                };
                 db.Interviews.Add(interview);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/interviews/schedule/{interview.Interview_ID}", interview);
+                return Results.Created($"/api/interviews/schedule/{interview.Interview_ID}", new HR.Models.InterviewResponse
+                {
+                    Interview_ID = interview.Interview_ID,
+                    Application_ID = interview.Application_ID,
+                    ScheduledAt = interview.ScheduledAt,
+                    Interviewer = interview.Interviewer,
+                    Status = interview.Status
+                });
             });
-            group.MapPut("/schedule/{id}", async (int id, Interview updated, AuthDbContext db, HttpContext ctx) =>
+            group.MapPut("/schedule/{id}", async (int id, HR.Models.InterviewRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var interview = await db.Interviews.FindAsync(id);
                 if (interview is null) return Results.NotFound();
-                interview.ScheduledAt = updated.ScheduledAt;
-                interview.Interviewer = updated.Interviewer;
-                interview.Feedback = updated.Feedback;
-                interview.Status = updated.Status;
-                interview.Application_ID = updated.Application_ID;
+                interview.Application_ID = reqModel.Application_ID;
+                interview.ScheduledAt = reqModel.ScheduledAt;
+                interview.Interviewer = reqModel.Interviewer;
                 interview.UpdatedAt = DateTime.UtcNow;
                 interview.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                return Results.Ok(interview);
+                return Results.Ok(new HR.Models.InterviewResponse
+                {
+                    Interview_ID = interview.Interview_ID,
+                    Application_ID = interview.Application_ID,
+                    ScheduledAt = interview.ScheduledAt,
+                    Interviewer = interview.Interviewer,
+                    Status = interview.Status
+                });
             });
             group.MapDelete("/schedule/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {

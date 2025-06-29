@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
-using HR.Models.Api;
+using HR.Models;
+using Application = HR.Data.Application;
 
 namespace HR.Api
 {
@@ -25,7 +26,8 @@ namespace HR.Api
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
                 var total = await query.CountAsync();
                 var items = await query.Skip((page - 1) * pageSize).Take(pageSize)
-                    .Select(a => new ApplicationResponse {
+                    .Select(a => new ApplicationResponse
+                    {
                         Application_ID = a.Application_ID,
                         JobPosting_ID = a.JobPosting_ID,
                         CandidateName = a.CandidateName,
@@ -38,7 +40,8 @@ namespace HR.Api
 
             endpoints.MapGet("/api/applications/{id}", async (int id, AuthDbContext db) =>
                 await db.Applications.FindAsync(id) is Application a ?
-                    Results.Ok(new ApplicationResponse {
+                    Results.Ok(new ApplicationResponse
+                    {
                         Application_ID = a.Application_ID,
                         JobPosting_ID = a.JobPosting_ID,
                         CandidateName = a.CandidateName,
@@ -49,7 +52,8 @@ namespace HR.Api
 
             endpoints.MapPost("/api/applications", async (ApplicationRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                var a = new Application {
+                var a = new Application
+                {
                     JobPosting_ID = reqModel.JobPosting_ID,
                     CandidateName = reqModel.CandidateName,
                     CandidateEmail = reqModel.CandidateEmail,
@@ -58,7 +62,8 @@ namespace HR.Api
                 };
                 db.Applications.Add(a);
                 await db.SaveChangesAsync();
-                var response = new ApplicationResponse {
+                var response = new ApplicationResponse
+                {
                     Application_ID = a.Application_ID,
                     JobPosting_ID = a.JobPosting_ID,
                     CandidateName = a.CandidateName,
@@ -79,7 +84,8 @@ namespace HR.Api
                 a.UpdatedAt = DateTime.UtcNow;
                 a.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
-                var response = new ApplicationResponse {
+                var response = new ApplicationResponse
+                {
                     Application_ID = a.Application_ID,
                     JobPosting_ID = a.JobPosting_ID,
                     CandidateName = a.CandidateName,

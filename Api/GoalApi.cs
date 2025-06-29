@@ -69,52 +69,75 @@ namespace HR.Api
             // Only keep enhanced Personal Goals endpoints
             group.MapGet("/personal", async (HttpRequest req, AuthDbContext db) =>
             {
-                var query = db.PersonalGoals.Include(g => g.Employee).Where(g => !g.IsDeleted);
-                // Filtering by employee
+                var query = db.PersonalGoals.AsQueryable();
                 if (req.Query.TryGetValue("employeeId", out var empId) && int.TryParse(empId, out var eid))
                     query = query.Where(g => g.Employee_ID == eid);
-                // Search by goal
-                if (req.Query.TryGetValue("q", out var q) && !string.IsNullOrEmpty(q))
-                    query = query.Where(g => g.Goal.Contains(q!));
-                // Paging
-                int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
-                int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
-                var total = await query.CountAsync();
-                var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-                return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
+                var list = await query.ToListAsync();
+                return Results.Ok(list.Select(g => new HR.Models.PersonalGoalResponse
+                {
+                    PersonalGoal_ID = g.PersonalGoal_ID,
+                    Employee_ID = g.Employee_ID,
+                    Goal = g.Goal,
+                    StartDate = g.TargetDate,
+                    EndDate = g.TargetDate,
+                    IsCompleted = g.IsAchieved
+                }));
             });
             group.MapGet("/personal/{id}", async (int id, AuthDbContext db) =>
-                await db.PersonalGoals.Include(g => g.Employee).FirstOrDefaultAsync(g => g.PersonalGoal_ID == id && !g.IsDeleted) is PersonalGoal goal
-                    ? Results.Ok(goal)
-                    : Results.NotFound());
-            group.MapPost("/personal", async (PersonalGoal goal, AuthDbContext db, HttpContext ctx) =>
+                await db.PersonalGoals.FindAsync(id) is PersonalGoal g ?
+                    Results.Ok(new HR.Models.PersonalGoalResponse
+                    {
+                        PersonalGoal_ID = g.PersonalGoal_ID,
+                        Employee_ID = g.Employee_ID,
+                        Goal = g.Goal,
+                        StartDate = g.TargetDate,
+                        EndDate = g.TargetDate,
+                        IsCompleted = g.IsAchieved
+                    }) : Results.NotFound());
+            group.MapPost("/personal", async (HR.Models.PersonalGoalRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                goal.CreatedAt = DateTime.UtcNow;
-                goal.CreatedBy = ctx.User?.Identity?.Name;
+                var goal = new PersonalGoal
+                {
+                    Employee_ID = reqModel.Employee_ID,
+                    Goal = reqModel.Goal,
+                    TargetDate = reqModel.EndDate,
+                    IsAchieved = false
+                };
                 db.PersonalGoals.Add(goal);
                 await db.SaveChangesAsync();
-                return Results.Created($"/api/goals/personal/{goal.PersonalGoal_ID}", goal);
+                return Results.Created($"/api/goals/personal/{goal.PersonalGoal_ID}", new HR.Models.PersonalGoalResponse
+                {
+                    PersonalGoal_ID = goal.PersonalGoal_ID,
+                    Employee_ID = goal.Employee_ID,
+                    Goal = goal.Goal,
+                    StartDate = goal.TargetDate,
+                    EndDate = goal.TargetDate,
+                    IsCompleted = goal.IsAchieved
+                });
             });
-            group.MapPut("/personal/{id}", async (int id, PersonalGoal updated, AuthDbContext db, HttpContext ctx) =>
+            group.MapPut("/personal/{id}", async (int id, HR.Models.PersonalGoalRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var goal = await db.PersonalGoals.FindAsync(id);
                 if (goal is null) return Results.NotFound();
-                goal.Goal = updated.Goal;
-                goal.TargetDate = updated.TargetDate;
-                goal.IsAchieved = updated.IsAchieved;
-                goal.Employee_ID = updated.Employee_ID;
-                goal.UpdatedAt = DateTime.UtcNow;
-                goal.UpdatedBy = ctx.User?.Identity?.Name;
+                goal.Employee_ID = reqModel.Employee_ID;
+                goal.Goal = reqModel.Goal;
+                goal.TargetDate = reqModel.EndDate;
                 await db.SaveChangesAsync();
-                return Results.Ok(goal);
+                return Results.Ok(new HR.Models.PersonalGoalResponse
+                {
+                    PersonalGoal_ID = goal.PersonalGoal_ID,
+                    Employee_ID = goal.Employee_ID,
+                    Goal = goal.Goal,
+                    StartDate = goal.TargetDate,
+                    EndDate = goal.TargetDate,
+                    IsCompleted = goal.IsAchieved
+                });
             });
             group.MapDelete("/personal/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {
                 var goal = await db.PersonalGoals.FindAsync(id);
                 if (goal is null) return Results.NotFound();
-                goal.IsDeleted = true;
-                goal.UpdatedAt = DateTime.UtcNow;
-                goal.UpdatedBy = ctx.User?.Identity?.Name;
+                db.PersonalGoals.Remove(goal);
                 await db.SaveChangesAsync();
                 return Results.NoContent();
             });
