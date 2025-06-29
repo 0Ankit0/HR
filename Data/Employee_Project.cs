@@ -14,5 +14,10 @@ namespace HR.Data
         public Project? Project { get; set; }
         public DateTime Assignment_Date { get; set; }
         public string Role_on_Project { get; set; } = string.Empty;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 }

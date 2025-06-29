@@ -12,5 +12,10 @@ namespace HR.Data
         public DateTime Deadline { get; set; }
         public decimal Budget { get; set; }
         public ICollection<Employee_Project> Employee_Projects { get; set; } = new List<Employee_Project>();
+        public bool IsDeleted { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 }

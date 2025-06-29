@@ -15,5 +15,10 @@ namespace HR.Data
         public DateTime Payment_Date { get; set; }
         public decimal Bonus { get; set; }
         public decimal NetPay { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 }

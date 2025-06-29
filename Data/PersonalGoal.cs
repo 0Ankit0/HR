@@ -4,15 +4,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Data
 {
-    public class JobPosting
+    public class PersonalGoal
     {
         [Key]
-        public int JobPosting_ID { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public DateTime PostedDate { get; set; }
-        public DateTime? EndDate { get; set; }
-        public bool IsActive { get; set; }
+        public int PersonalGoal_ID { get; set; }
+        [ForeignKey(nameof(Employee))]
+        public int Employee_ID { get; set; }
+        public Employee? Employee { get; set; }
+        [Required]
+        public string Goal { get; set; } = string.Empty;
+        public DateTime TargetDate { get; set; }
+        public bool IsAchieved { get; set; }
         public bool IsDeleted { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }

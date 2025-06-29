@@ -27,5 +27,11 @@ namespace HR.Data
         public ICollection<Leave> Leaves { get; set; } = new List<Leave>();
         public ICollection<Employee_Project> Employee_Projects { get; set; } = new List<Employee_Project>();
         public ICollection<Employee_Training> Employee_Trainings { get; set; } = new List<Employee_Training>();
+        public ICollection<Benefit>? Benefits { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 }

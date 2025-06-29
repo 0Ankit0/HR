@@ -28,6 +28,17 @@ namespace HR.Data
         public DbSet<MentalHealthResource> MentalHealthResources { get; set; }
         public DbSet<PerformanceReview> PerformanceReviews { get; set; }
         public DbSet<DEIResource> DEIResources { get; set; }
+        public DbSet<OKRGoal> OKRGoals { get; set; }
+        public DbSet<PersonalGoal> PersonalGoals { get; set; }
+        public DbSet<Award> Awards { get; set; }
+        public DbSet<Nomination> Nominations { get; set; }
+        public DbSet<Feedback> Feedbacks { get; set; }
+        public DbSet<Survey> Surveys { get; set; }
+        public DbSet<Incident> Incidents { get; set; }
+        public DbSet<Interview> Interviews { get; set; }
+        public DbSet<Announcement> Announcements { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<Benefit> Benefits { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -108,6 +119,55 @@ namespace HR.Data
                 .HasOne(pr => pr.Employee)
                 .WithMany()
                 .HasForeignKey(pr => pr.Employee_ID);
+            // OKRGoal-Employee relationship
+            modelBuilder.Entity<OKRGoal>()
+                .HasOne(g => g.Employee)
+                .WithMany()
+                .HasForeignKey(g => g.Employee_ID);
+            // PersonalGoal-Employee relationship
+            modelBuilder.Entity<PersonalGoal>()
+                .HasOne(g => g.Employee)
+                .WithMany()
+                .HasForeignKey(g => g.Employee_ID);
+            // Award-Employee relationship
+            modelBuilder.Entity<Award>()
+                .HasOne(a => a.Employee)
+                .WithMany()
+                .HasForeignKey(a => a.Employee_ID);
+            // Nomination-Employee relationship
+            modelBuilder.Entity<Nomination>()
+                .HasOne(n => n.Employee)
+                .WithMany()
+                .HasForeignKey(n => n.Employee_ID);
+            // Feedback-Employee relationship
+            modelBuilder.Entity<Feedback>()
+                .HasOne(f => f.Employee)
+                .WithMany()
+                .HasForeignKey(f => f.Employee_ID);
+            modelBuilder.Entity<Incident>()
+                .HasOne(i => i.Employee)
+                .WithMany()
+                .HasForeignKey(i => i.Employee_ID);
+            modelBuilder.Entity<Interview>()
+                .HasOne(i => i.Application)
+                .WithMany()
+                .HasForeignKey(i => i.Application_ID);
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.Sender_ID)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Recipient)
+                .WithMany()
+                .HasForeignKey(m => m.Recipient_ID)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Employee-Benefit relationship
+            modelBuilder.Entity<Benefit>()
+                .HasOne(b => b.Employee)
+                .WithMany(e => e.Benefits)
+                .HasForeignKey(b => b.Employee_ID);
         }
     }
 }

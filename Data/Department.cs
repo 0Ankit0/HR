@@ -15,5 +15,11 @@ namespace HR.Data
         public int? ManagerID { get; set; } // FK to Employee, nullable
         public Employee? Manager { get; set; }
         public ICollection<Employee> Employees { get; set; } = new List<Employee>();
+
+        public bool IsDeleted { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public string? UpdatedBy { get; set; }
     }
 }
