@@ -1,0 +1,6 @@
+site_name: HR System Documentation
+nav:
+  - Home: docs/index.md
+  - API Reference: docs/api.md
+  - Data Models: docs/data-models.md
+  - WorkFlows: docs/workflows.md
