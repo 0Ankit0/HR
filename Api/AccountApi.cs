@@ -12,9 +12,11 @@ namespace HR.Api
 {
     public static class AccountApi
     {
-        public static IEndpointRouteBuilder MapAccountApi(this IEndpointRouteBuilder endpoints)
+        public static IEndpointRouteBuilder MapAccountApi(IEndpointRouteBuilder app)
         {
-            endpoints.MapPost("/api/account/login", async ([FromForm] LoginRequest loginRequest, SignInManager<IdentityUser> signInManager, HttpContext context) =>
+            var group = app.MapGroup("/api/account")
+                        .WithTags("Account");
+            group.MapPost("/api/account/login", async ([FromForm] LoginRequest loginRequest, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
                 var result = await signInManager.PasswordSignInAsync(loginRequest.Email, loginRequest.Password, false, false);
                 if (result.Succeeded)
@@ -39,7 +41,7 @@ namespace HR.Api
                 }
             }).DisableAntiforgery();
 
-            endpoints.MapPost("/api/account/loginwith2fa", async (
+            group.MapPost("/api/account/loginwith2fa", async (
         [FromForm] TwoFactorLoginRequest model,
         SignInManager<IdentityUser> signInManager,
         UserManager<IdentityUser> userManager,
@@ -53,7 +55,7 @@ namespace HR.Api
                 return Results.Redirect("/account/login?error=Invalid");
 
             }).DisableAntiforgery();
-            endpoints.MapGet("/account/externalLoginLink", async (
+            group.MapGet("/account/externalLoginLink", async (
                 HttpContext httpContext,
                 SignInManager<IdentityUser> signInManager,
                 UserManager<IdentityUser> userManager,
@@ -72,7 +74,7 @@ namespace HR.Api
                 return Results.Challenge(properties, new[] { provider });
             });
 
-            endpoints.MapGet("/account/externalLoginLink/callback", async (
+            group.MapGet("/account/externalLoginLink/callback", async (
                 HttpContext httpContext,
                 SignInManager<IdentityUser> signInManager,
                 UserManager<IdentityUser> userManager,
@@ -103,7 +105,7 @@ namespace HR.Api
                 return Results.Redirect($"{returnUrl}?statusMessage=The%20external%20login%20was%20added.");
             });
 
-            endpoints.MapGet("/api/account/refreshsignin", async (
+            group.MapGet("/api/account/refreshsignin", async (
                 HttpContext context,
                 UserManager<IdentityUser> userManager,
                 SignInManager<IdentityUser> signInManager) =>
@@ -118,7 +120,7 @@ namespace HR.Api
                 return Results.Ok(new { message = "Sign-in refreshed." });
             }).RequireAuthorization();
 
-            endpoints.MapGet("/api/account/logout", async (
+            group.MapGet("/api/account/logout", async (
             SignInManager<IdentityUser> signInManager,
             HttpContext context) =>
                 {
@@ -126,7 +128,7 @@ namespace HR.Api
                     return Results.Redirect($"/account/login?error={Uri.EscapeDataString("You have been logged out. Please login to proceed.")}");
                 });
 
-            //endpoints.MapPost("/api/account/logout", async (
+            //group.MapPost("/api/account/logout", async (
             //SignInManager<IdentityUser> signInManager,
             //HttpContext context) =>
             //    {
@@ -134,8 +136,8 @@ namespace HR.Api
             //        return Results.Ok(new { message = "You have been logged out." });
             //    }).RequireAuthorization();
 
-           
-            endpoints.MapPost("/api/account/loginwithrecoverycode", async (
+
+            group.MapPost("/api/account/loginwithrecoverycode", async (
         [FromForm] RecoveryCodeLoginRequest model,
         SignInManager<IdentityUser> signInManager,
         UserManager<IdentityUser> userManager,
@@ -158,7 +160,7 @@ namespace HR.Api
             }).DisableAntiforgery();
 
             // Register user
-            endpoints.MapPost("/api/account/register", async ([FromBody] RegisterModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) =>
+            group.MapPost("/api/account/register", async ([FromBody] RegisterModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) =>
             {
                 var user = new IdentityUser
                 {
@@ -173,7 +175,7 @@ namespace HR.Api
             });
 
             // Get profile
-            endpoints.MapGet("/api/account/profile", async (UserManager<IdentityUser> userManager, HttpContext context) =>
+            group.MapGet("/api/account/profile", async (UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -181,7 +183,7 @@ namespace HR.Api
             });
 
             // Get personal data
-            endpoints.MapGet("/api/account/personaldata", async (UserManager<IdentityUser> userManager, HttpContext context) =>
+            group.MapGet("/api/account/personaldata", async (UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -189,7 +191,7 @@ namespace HR.Api
             });
 
             // Download personal data
-            endpoints.MapGet("/api/account/downloadpersonaldata", async (UserManager<IdentityUser> userManager, HttpContext context) =>
+            group.MapGet("/api/account/downloadpersonaldata", async (UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -197,7 +199,7 @@ namespace HR.Api
             });
 
             // Delete personal data
-            endpoints.MapPost("/api/account/deletepersonaldata", async ([FromBody] DeletePersonalDataModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
+            group.MapPost("/api/account/deletepersonaldata", async ([FromBody] DeletePersonalDataModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -213,7 +215,7 @@ namespace HR.Api
             });
 
             // Resend email confirmation
-            endpoints.MapPost("/api/account/resendemailconfirmation", async ([FromBody] ResendEmailConfirmationModel model, UserManager<IdentityUser> userManager, IEmailSender emailSender, HttpContext context) =>
+            group.MapPost("/api/account/resendemailconfirmation", async ([FromBody] ResendEmailConfirmationModel model, UserManager<IdentityUser> userManager, IEmailSender emailSender, HttpContext context) =>
             {
                 var user = await userManager.FindByEmailAsync(model.Email);
                 if (user == null) return Results.Ok();
@@ -235,7 +237,7 @@ namespace HR.Api
 
 
             // Unlock account
-            endpoints.MapPost("/api/account/unlock", async (
+            group.MapPost("/api/account/unlock", async (
                 [FromBody] UnlockModel model,
                 UserManager<IdentityUser> userManager) =>
             {
@@ -254,7 +256,7 @@ namespace HR.Api
             });
 
             // Request unlock
-            endpoints.MapPost("/api/account/requestunlock", async (
+            group.MapPost("/api/account/requestunlock", async (
     [FromBody] RequestUnlockModel model,
     UserManager<IdentityUser> userManager,
     IEmailSender emailSender,
@@ -284,14 +286,14 @@ namespace HR.Api
             });
 
             // List available external login providers
-            endpoints.MapGet("/api/account/externallogins", async (SignInManager<IdentityUser> signInManager) =>
+            group.MapGet("/api/account/externallogins", async (SignInManager<IdentityUser> signInManager) =>
             {
                 var providers = (await signInManager.GetExternalAuthenticationSchemesAsync()).Select(s => new { s.Name, s.DisplayName });
                 return Results.Ok(providers);
             });
 
             // List/manage linked external logins for current user
-            endpoints.MapGet("/api/account/externallogins/manage", async (SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager, HttpContext context) =>
+            group.MapGet("/api/account/externallogins/manage", async (SignInManager<IdentityUser> signInManager, UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -327,7 +329,7 @@ namespace HR.Api
             });
 
             // Remove an external login
-            endpoints.MapPost("/api/account/removelogin", async ([FromBody] RemoveLoginModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
+            group.MapPost("/api/account/removelogin", async ([FromBody] RemoveLoginModel model, UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -338,7 +340,7 @@ namespace HR.Api
             });
 
             // Link a new external login (placeholder, actual flow is handled by OIDC redirect)
-            endpoints.MapPost("/api/account/linklogin", async ([FromBody] LinkLoginModel model, UserManager<IdentityUser> userManager, HttpContext context) =>
+            group.MapPost("/api/account/linklogin", async ([FromBody] LinkLoginModel model, UserManager<IdentityUser> userManager, HttpContext context) =>
             {
                 // This would normally start the OIDC challenge
                 return Results.Ok();
@@ -346,7 +348,7 @@ namespace HR.Api
 
 
             // Delete personal data (DELETE)
-            endpoints.MapDelete("/api/account/personaldata", async (UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
+            group.MapDelete("/api/account/personaldata", async (UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, HttpContext context) =>
             {
                 var user = await userManager.GetUserAsync(context.User);
                 if (user == null) return Results.Unauthorized();
@@ -355,7 +357,7 @@ namespace HR.Api
                 await signInManager.SignOutAsync();
                 return Results.Ok();
             });
-            endpoints.MapGet("/api/account/registerconfirmation", async (
+            group.MapGet("/api/account/registerconfirmation", async (
     [FromQuery] string email,
     UserManager<IdentityUser> userManager,
     HttpContext context) =>
@@ -382,7 +384,7 @@ namespace HR.Api
             });
 
             // Reset password endpoint
-            endpoints.MapPost("/api/account/resetpassword", async (
+            group.MapPost("/api/account/resetpassword", async (
                 [FromBody] ResetPasswordModel model,
                 UserManager<IdentityUser> userManager) =>
             {
@@ -414,7 +416,7 @@ namespace HR.Api
                 return Results.BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));
             });
 
-            return endpoints;
+            return group;
         }
     }
 
@@ -465,7 +467,7 @@ namespace HR.Api
     public class UnlockModel
     {
         public string Email { get; set; } = string.Empty;
-        public string Code { get; set; } = string.Empty; 
+        public string Code { get; set; } = string.Empty;
     }
     public class RequestUnlockModel
     {
