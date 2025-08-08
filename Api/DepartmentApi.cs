@@ -48,6 +48,8 @@ namespace HR.Api
                 var department = new Department
                 {
                     Department_Name = reqModel.Department_Name,
+                    Department_Location = reqModel.Department_Location,
+                    ManagerID = reqModel.ManagerID,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = ctx.User?.Identity?.Name
                 };
@@ -67,6 +69,8 @@ namespace HR.Api
                 var department = await db.Departments.FindAsync(id);
                 if (department is null) return Results.NotFound();
                 department.Department_Name = reqModel.Department_Name;
+                department.Department_Location = reqModel.Department_Location;
+                department.ManagerID = reqModel.ManagerID;
                 department.UpdatedAt = DateTime.UtcNow;
                 department.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
@@ -79,6 +83,67 @@ namespace HR.Api
                 };
                 return Results.Ok(response);
             });
+
+            // Get department statistics
+            endpoints.MapGet("/api/departments/stats", async (AuthDbContext db) =>
+            {
+                var total = await db.Departments.CountAsync(d => !d.IsDeleted);
+                var withManagers = await db.Departments.CountAsync(d => !d.IsDeleted && d.ManagerID.HasValue);
+                var locations = await db.Departments.Where(d => !d.IsDeleted)
+                    .Select(d => d.Department_Location)
+                    .Distinct()
+                    .CountAsync();
+
+                // Calculate actual average employees per department
+                var departmentEmployeeCounts = await db.Departments
+                    .Where(d => !d.IsDeleted)
+                    .Select(d => new
+                    {
+                        DepartmentId = d.Department_ID,
+                        EmployeeCount = db.Employees.Count(e => e.Department_ID == d.Department_ID && !e.IsDeleted)
+                    })
+                    .ToListAsync();
+
+                var averageEmployees = departmentEmployeeCounts.Any()
+                    ? (int)Math.Round(departmentEmployeeCounts.Average(d => d.EmployeeCount))
+                    : 0;
+
+                return Results.Ok(new
+                {
+                    Total = total,
+                    WithManagers = withManagers,
+                    UniqueLocations = locations,
+                    AverageEmployees = averageEmployees
+                });
+            });
+
+            // Get employee count for specific department
+            endpoints.MapGet("/api/departments/{id}/employees/count", async (int id, AuthDbContext db) =>
+            {
+                var department = await db.Departments.FindAsync(id);
+                if (department == null || department.IsDeleted)
+                    return Results.NotFound();
+
+                var count = await db.Employees.CountAsync(e => e.Department_ID == id && !e.IsDeleted);
+                return Results.Ok(new { DepartmentId = id, EmployeeCount = count });
+            });
+
+            // Get employee counts for all departments
+            endpoints.MapGet("/api/departments/employee-counts", async (AuthDbContext db) =>
+            {
+                var counts = await db.Departments
+                    .Where(d => !d.IsDeleted)
+                    .Select(d => new
+                    {
+                        DepartmentId = d.Department_ID,
+                        DepartmentName = d.Department_Name,
+                        EmployeeCount = db.Employees.Count(e => e.Department_ID == d.Department_ID && !e.IsDeleted)
+                    })
+                    .ToListAsync();
+
+                return Results.Ok(counts);
+            });
+
             endpoints.MapDelete("/api/departments/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
             {
                 var department = await db.Departments.FindAsync(id);

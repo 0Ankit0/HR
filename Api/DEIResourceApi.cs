@@ -26,7 +26,9 @@ namespace HR.Api
                     {
                         DEIResource_ID = d.DEIResource_ID,
                         Title = d.Title,
-                        Content = d.Content
+                        Content = d.Content,
+                        CreatedAt = d.CreatedAt,
+                        CreatedBy = d.CreatedBy
                     }).ToListAsync();
                 return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
@@ -37,7 +39,9 @@ namespace HR.Api
                     {
                         DEIResource_ID = d.DEIResource_ID,
                         Title = d.Title,
-                        Content = d.Content
+                        Content = d.Content,
+                        CreatedAt = d.CreatedAt,
+                        CreatedBy = d.CreatedBy
                     }) : Results.NotFound());
 
             endpoints.MapPost("/api/deiresources", async (DEIResourceRequest reqModel, AuthDbContext db, HttpContext ctx) =>
@@ -55,7 +59,9 @@ namespace HR.Api
                 {
                     DEIResource_ID = d.DEIResource_ID,
                     Title = d.Title,
-                    Content = d.Content
+                    Content = d.Content,
+                    CreatedAt = d.CreatedAt,
+                    CreatedBy = d.CreatedBy
                 };
                 return Results.Created($"/api/deiresources/{d.DEIResource_ID}", response);
             });

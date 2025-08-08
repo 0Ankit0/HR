@@ -26,10 +26,22 @@ namespace HR.Api
                     {
                         Policy_ID = p.Policy_ID,
                         Title = p.Title,
+                        PolicyNumber = p.PolicyNumber,
+                        Category = p.Category,
+                        Status = p.Status,
+                        Version = p.Version,
+                        EffectiveDate = p.EffectiveDate,
+                        NextReviewDate = p.NextReviewDate,
+                        Summary = p.Summary,
                         Content = p.Content,
-                        EffectiveDate = p.EffectiveDate
+                        ApprovalNotes = p.ApprovalNotes,
+                        CreatedAt = p.CreatedAt,
+                        LastUpdated = p.UpdatedAt,
+                        CreatedBy = p.CreatedBy,
+                        UpdatedBy = p.UpdatedBy,
+                        Priority = p.Priority
                     }).ToListAsync();
-                return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
+                return Results.Ok(new PolicyListResponse { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
             endpoints.MapGet("/api/policies/{id}", async (int id, AuthDbContext db) =>
                 await db.Policies.FindAsync(id) is Policy p ?
@@ -37,16 +49,38 @@ namespace HR.Api
                     {
                         Policy_ID = p.Policy_ID,
                         Title = p.Title,
+                        PolicyNumber = p.PolicyNumber,
+                        Category = p.Category,
+                        Status = p.Status,
+                        Version = p.Version,
+                        EffectiveDate = p.EffectiveDate,
+                        NextReviewDate = p.NextReviewDate,
+                        Summary = p.Summary,
                         Content = p.Content,
-                        EffectiveDate = p.EffectiveDate
+                        ApprovalNotes = p.ApprovalNotes,
+                        CreatedAt = p.CreatedAt,
+                        LastUpdated = p.UpdatedAt,
+                        CreatedBy = p.CreatedBy,
+                        UpdatedBy = p.UpdatedBy,
+                        Priority = p.Priority
                     }) : Results.NotFound());
             endpoints.MapPost("/api/policies", async (PolicyRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var policy = new Policy
                 {
                     Title = reqModel.Title,
+                    PolicyNumber = reqModel.PolicyNumber,
+                    Category = reqModel.Category,
+                    Status = reqModel.Status,
+                    Version = reqModel.Version,
+                    EffectiveDate = reqModel.EffectiveDate,
+                    NextReviewDate = reqModel.NextReviewDate,
+                    Summary = reqModel.Summary,
                     Content = reqModel.Content,
-                    EffectiveDate = reqModel.EffectiveDate
+                    ApprovalNotes = reqModel.ApprovalNotes,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name,
+                    Priority = "Medium"
                 };
                 db.Policies.Add(policy);
                 await db.SaveChangesAsync();
@@ -54,8 +88,20 @@ namespace HR.Api
                 {
                     Policy_ID = policy.Policy_ID,
                     Title = policy.Title,
+                    PolicyNumber = policy.PolicyNumber,
+                    Category = policy.Category,
+                    Status = policy.Status,
+                    Version = policy.Version,
+                    EffectiveDate = policy.EffectiveDate,
+                    NextReviewDate = policy.NextReviewDate,
+                    Summary = policy.Summary,
                     Content = policy.Content,
-                    EffectiveDate = policy.EffectiveDate
+                    ApprovalNotes = policy.ApprovalNotes,
+                    CreatedAt = policy.CreatedAt,
+                    LastUpdated = policy.UpdatedAt,
+                    CreatedBy = policy.CreatedBy,
+                    UpdatedBy = policy.UpdatedBy,
+                    Priority = policy.Priority
                 });
             });
             endpoints.MapPut("/api/policies/{id}", async (int id, PolicyRequest reqModel, AuthDbContext db, HttpContext ctx) =>
@@ -63,15 +109,36 @@ namespace HR.Api
                 var p = await db.Policies.FindAsync(id);
                 if (p is null) return Results.NotFound();
                 p.Title = reqModel.Title;
-                p.Content = reqModel.Content;
+                p.PolicyNumber = reqModel.PolicyNumber;
+                p.Category = reqModel.Category;
+                p.Status = reqModel.Status;
+                p.Version = reqModel.Version;
                 p.EffectiveDate = reqModel.EffectiveDate;
+                p.NextReviewDate = reqModel.NextReviewDate;
+                p.Summary = reqModel.Summary;
+                p.Content = reqModel.Content;
+                p.ApprovalNotes = reqModel.ApprovalNotes;
+                p.UpdatedAt = DateTime.UtcNow;
+                p.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
                 return Results.Ok(new PolicyResponse
                 {
                     Policy_ID = p.Policy_ID,
                     Title = p.Title,
+                    PolicyNumber = p.PolicyNumber,
+                    Category = p.Category,
+                    Status = p.Status,
+                    Version = p.Version,
+                    EffectiveDate = p.EffectiveDate,
+                    NextReviewDate = p.NextReviewDate,
+                    Summary = p.Summary,
                     Content = p.Content,
-                    EffectiveDate = p.EffectiveDate
+                    ApprovalNotes = p.ApprovalNotes,
+                    CreatedAt = p.CreatedAt,
+                    LastUpdated = p.UpdatedAt,
+                    CreatedBy = p.CreatedBy,
+                    UpdatedBy = p.UpdatedBy,
+                    Priority = p.Priority
                 });
             });
             endpoints.MapDelete("/api/policies/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>

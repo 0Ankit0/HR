@@ -55,6 +55,8 @@ namespace HR.Api
                 {
                     Employee_ID = reqModel.Employee_ID,
                     Content = reqModel.Content,
+                    DateGiven = reqModel.DateGiven ?? DateTime.UtcNow,
+                    GivenBy = reqModel.GivenBy ?? ctx.User?.Identity?.Name,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = ctx.User?.Identity?.Name
                 };
@@ -76,6 +78,8 @@ namespace HR.Api
                 if (feedback is null) return Results.NotFound();
                 feedback.Employee_ID = reqModel.Employee_ID;
                 feedback.Content = reqModel.Content;
+                feedback.DateGiven = reqModel.DateGiven ?? feedback.DateGiven;
+                feedback.GivenBy = reqModel.GivenBy ?? feedback.GivenBy;
                 feedback.UpdatedAt = DateTime.UtcNow;
                 feedback.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();

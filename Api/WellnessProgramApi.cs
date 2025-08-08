@@ -14,9 +14,9 @@ namespace HR.Api
             endpoints.MapGet("/api/wellnessprograms", async (HttpRequest req, AuthDbContext db) =>
             {
                 var query = db.WellnessPrograms.Where(w => !w.IsDeleted);
-                // Search by title
+                // Search by program name
                 if (req.Query.TryGetValue("q", out var q) && !string.IsNullOrEmpty(q))
-                    query = query.Where(w => w.Title.Contains(q!));
+                    query = query.Where(w => w.ProgramName.Contains(q!));
                 // Paging
                 int page = req.Query.TryGetValue("page", out var p) && int.TryParse(p, out var pi) ? pi : 1;
                 int pageSize = req.Query.TryGetValue("pageSize", out var ps) && int.TryParse(ps, out var psi) ? psi : 20;
@@ -25,12 +25,24 @@ namespace HR.Api
                     .Select(w => new WellnessProgramResponse
                     {
                         WellnessProgram_ID = w.WellnessProgram_ID,
-                        Title = w.Title,
+                        ProgramName = w.ProgramName,
                         Description = w.Description,
+                        Category = w.Category,
+                        ProgramType = w.ProgramType,
+                        Status = w.Status,
                         StartDate = w.StartDate,
-                        EndDate = w.EndDate.HasValue ? w.EndDate.Value : default(DateTime)
+                        EndDate = w.EndDate,
+                        Duration = w.Duration,
+                        Location = w.Location,
+                        MaxParticipants = w.MaxParticipants,
+                        ParticipantCount = w.ParticipantCount,
+                        Benefits = w.Benefits,
+                        CreatedAt = w.CreatedAt,
+                        UpdatedAt = w.UpdatedAt,
+                        CreatedBy = w.CreatedBy,
+                        UpdatedBy = w.UpdatedBy
                     }).ToListAsync();
-                return Results.Ok(new { Total = total, Page = page, PageSize = pageSize, Items = items });
+                return Results.Ok(new WellnessProgramListResponse { Total = total, Page = page, PageSize = pageSize, Items = items });
             });
 
             endpoints.MapGet("/api/wellnessprograms/{id}", async (int id, AuthDbContext db) =>
@@ -38,48 +50,102 @@ namespace HR.Api
                     Results.Ok(new WellnessProgramResponse
                     {
                         WellnessProgram_ID = w.WellnessProgram_ID,
-                        Title = w.Title,
+                        ProgramName = w.ProgramName,
                         Description = w.Description,
+                        Category = w.Category,
+                        ProgramType = w.ProgramType,
+                        Status = w.Status,
                         StartDate = w.StartDate,
-                        EndDate = w.EndDate.HasValue ? w.EndDate.Value : default(DateTime)
+                        EndDate = w.EndDate,
+                        Duration = w.Duration,
+                        Location = w.Location,
+                        MaxParticipants = w.MaxParticipants,
+                        ParticipantCount = w.ParticipantCount,
+                        Benefits = w.Benefits,
+                        CreatedAt = w.CreatedAt,
+                        UpdatedAt = w.UpdatedAt,
+                        CreatedBy = w.CreatedBy,
+                        UpdatedBy = w.UpdatedBy
                     }) : Results.NotFound());
 
             endpoints.MapPost("/api/wellnessprograms", async (WellnessProgramRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var w = new WellnessProgram
                 {
-                    Title = reqModel.Title,
+                    ProgramName = reqModel.ProgramName,
                     Description = reqModel.Description,
+                    Category = reqModel.Category,
+                    ProgramType = reqModel.ProgramType,
+                    Status = reqModel.Status,
                     StartDate = reqModel.StartDate,
-                    EndDate = reqModel.EndDate
+                    EndDate = reqModel.EndDate,
+                    Duration = reqModel.Duration,
+                    Location = reqModel.Location,
+                    MaxParticipants = reqModel.MaxParticipants,
+                    Benefits = reqModel.Benefits,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = ctx.User?.Identity?.Name
                 };
                 db.WellnessPrograms.Add(w);
                 await db.SaveChangesAsync();
                 return Results.Created($"/api/wellnessprograms/{w.WellnessProgram_ID}", new WellnessProgramResponse
                 {
                     WellnessProgram_ID = w.WellnessProgram_ID,
-                    Title = w.Title,
+                    ProgramName = w.ProgramName,
                     Description = w.Description,
+                    Category = w.Category,
+                    ProgramType = w.ProgramType,
+                    Status = w.Status,
                     StartDate = w.StartDate,
-                    EndDate = w.EndDate.HasValue ? w.EndDate.Value : default(DateTime)
+                    EndDate = w.EndDate,
+                    Duration = w.Duration,
+                    Location = w.Location,
+                    MaxParticipants = w.MaxParticipants,
+                    ParticipantCount = w.ParticipantCount,
+                    Benefits = w.Benefits,
+                    CreatedAt = w.CreatedAt,
+                    UpdatedAt = w.UpdatedAt,
+                    CreatedBy = w.CreatedBy,
+                    UpdatedBy = w.UpdatedBy
                 });
             });
             endpoints.MapPut("/api/wellnessprograms/{id}", async (int id, WellnessProgramRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
                 var w = await db.WellnessPrograms.FindAsync(id);
                 if (w is null) return Results.NotFound();
-                w.Title = reqModel.Title;
+                w.ProgramName = reqModel.ProgramName;
                 w.Description = reqModel.Description;
+                w.Category = reqModel.Category;
+                w.ProgramType = reqModel.ProgramType;
+                w.Status = reqModel.Status;
                 w.StartDate = reqModel.StartDate;
                 w.EndDate = reqModel.EndDate;
+                w.Duration = reqModel.Duration;
+                w.Location = reqModel.Location;
+                w.MaxParticipants = reqModel.MaxParticipants;
+                w.Benefits = reqModel.Benefits;
+                w.UpdatedAt = DateTime.UtcNow;
+                w.UpdatedBy = ctx.User?.Identity?.Name;
                 await db.SaveChangesAsync();
                 return Results.Ok(new WellnessProgramResponse
                 {
                     WellnessProgram_ID = w.WellnessProgram_ID,
-                    Title = w.Title,
+                    ProgramName = w.ProgramName,
                     Description = w.Description,
+                    Category = w.Category,
+                    ProgramType = w.ProgramType,
+                    Status = w.Status,
                     StartDate = w.StartDate,
-                    EndDate = w.EndDate.HasValue ? w.EndDate.Value : default(DateTime)
+                    EndDate = w.EndDate,
+                    Duration = w.Duration,
+                    Location = w.Location,
+                    MaxParticipants = w.MaxParticipants,
+                    ParticipantCount = w.ParticipantCount,
+                    Benefits = w.Benefits,
+                    CreatedAt = w.CreatedAt,
+                    UpdatedAt = w.UpdatedAt,
+                    CreatedBy = w.CreatedBy,
+                    UpdatedBy = w.UpdatedBy
                 });
             });
             endpoints.MapDelete("/api/wellnessprograms/{id}", async (int id, AuthDbContext db, HttpContext ctx) =>
