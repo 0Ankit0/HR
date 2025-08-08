@@ -4,6 +4,8 @@ namespace HR.Models
     {
         public int Employee_ID { get; set; }
         public string Content { get; set; } = string.Empty;
+        public string? GivenBy { get; set; }
+        public DateTime? DateGiven { get; set; }
     }
 
     public class FeedbackResponse

@@ -4,14 +4,19 @@ namespace HR.Models
     {
         public int Employee_ID { get; set; }
         public string Reason { get; set; } = string.Empty;
+        public string? NominatedBy { get; set; }
+        public DateTime? DateNominated { get; set; }
+        public bool IsAwarded { get; set; } = false;
     }
 
     public class NominationResponse
     {
         public int Nomination_ID { get; set; }
         public int Employee_ID { get; set; }
+        public string? EmployeeName { get; set; }
         public string Reason { get; set; } = string.Empty;
         public DateTime DateNominated { get; set; }
         public bool IsAwarded { get; set; }
+        public string? NominatedBy { get; set; }
     }
 }

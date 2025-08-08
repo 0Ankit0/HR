@@ -7,6 +7,11 @@ namespace HR.Models
         public string CandidateEmail { get; set; } = string.Empty;
     }
 
+    public class ApplicationStatusUpdateRequest
+    {
+        public string Status { get; set; } = string.Empty;
+    }
+
     public class ApplicationResponse
     {
         public int Application_ID { get; set; }
