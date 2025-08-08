@@ -1,6 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿<div class="top-row ps-3 navbar navbar-dark bg-primary">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">HR</a>
+        <a class="navbar-brand fw-bold" href="">
+            <i class="bi bi-building me-2"></i>HR Management System
+        </a>
     </div>
 </div>
 
@@ -8,21 +10,191 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
+        <!-- Dashboard -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <i class="bi bi-speedometer2 me-2"></i> Dashboard
             </NavLink>
         </div>
 
+        <!-- Employee Management -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small">
+                EMPLOYEE MANAGEMENT
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="employees">
+                <i class="bi bi-people me-2"></i> Employees
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="departments">
+                <i class="bi bi-diagram-3 me-2"></i> Departments
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="job-roles">
+                <i class="bi bi-briefcase me-2"></i> Job Roles
             </NavLink>
         </div>
 
+        <!-- Recruitment -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                RECRUITMENT
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="job-postings">
+                <i class="bi bi-megaphone me-2"></i> Job Postings
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="applications">
+                <i class="bi bi-file-earmark-text me-2"></i> Applications
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="interviews">
+                <i class="bi bi-calendar-check me-2"></i> Interviews
+            </NavLink>
+        </div>
+
+        <!-- Attendance & Leave -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                ATTENDANCE & LEAVE
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="attendance">
+                <i class="bi bi-clock me-2"></i> Attendance
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="leave-requests">
+                <i class="bi bi-calendar-x me-2"></i> Leave Requests
+            </NavLink>
+        </div>
+
+        <!-- Performance & Development -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                PERFORMANCE & DEVELOPMENT
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="performance-reviews">
+                <i class="bi bi-star me-2"></i> Performance Reviews
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="goals">
+                <i class="bi bi-target me-2"></i> Goals & OKRs
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="hr/personal-goals">
+                <i class="bi bi-person-check me-2"></i> Personal Goals
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="training">
+                <i class="bi bi-book me-2"></i> Training
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="feedback">
+                <i class="bi bi-chat-square-text me-2"></i> Feedback
+            </NavLink>
+        </div>
+
+        <!-- Projects -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                PROJECTS
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="projects">
+                <i class="bi bi-kanban me-2"></i> Projects
+            </NavLink>
+        </div>
+
+        <!-- Wellbeing & Culture -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                WELLBEING & CULTURE
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="wellness">
+                <i class="bi bi-heart me-2"></i> Wellness Programs
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="recognition">
+                <i class="bi bi-award me-2"></i> Recognition & Awards
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="dei-resources">
+                <i class="bi bi-people-fill me-2"></i> DEI Resources
+            </NavLink>
+        </div>
+
+        <!-- Admin -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                COMMUNICATION
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="hr/announcement-management">
+                <i class="bi bi-megaphone me-2"></i> Announcements
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="hr/message-management">
+                <i class="bi bi-envelope me-2"></i> Messages
+            </NavLink>
+        </div>
+
+        <!-- Admin -->
+        <div class="nav-item px-3">
+            <div class="nav-link text-light fw-semibold border-bottom border-secondary small mt-3">
+                ADMINISTRATION
+            </div>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="payroll">
+                <i class="bi bi-cash-stack me-2"></i> Payroll
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="benefits">
+                <i class="bi bi-shield-check me-2"></i> Benefits
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="policies">
+                <i class="bi bi-file-text me-2"></i> Policies
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="analytics">
+                <i class="bi bi-graph-up me-2"></i> Analytics
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="users">
+                <i class="bi bi-person-gear me-2"></i> User Management
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="hr/role-management">
+                <i class="bi bi-shield-lock me-2"></i> Role Management
             </NavLink>
         </div>
     </nav>

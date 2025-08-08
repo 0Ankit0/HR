@@ -1,6 +1,7 @@
 @page "/account/enableauthenticator"
 @using System.ComponentModel.DataAnnotations
-@using static HR.Api.TwoFactorApi
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JS
@@ -124,11 +125,18 @@
         NavigationManager.NavigateTo("/account/manage/2FA", forceLoad: true);
     }
 
-  
-
     public class AuthenticatorSetupDto
     {
         public string SharedKey { get; set; } = string.Empty;
         public string QrCodeUri { get; set; } = string.Empty;
+    }
+
+    public class Enable2faInputModel
+    {
+        [Required]
+        [StringLength(7, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [DataType(DataType.Text)]
+        [Display(Name = "Verification Code")]
+        public string Code { get; set; } = string.Empty;
     }
 }

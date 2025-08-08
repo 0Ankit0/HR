@@ -1,6 +1,5 @@
 @page "/account/roles"
 @using System.Net.Http.Json
-@using static HR.Api.RoleApi
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @attribute [Authorize(Roles = "Admin")]
@@ -178,5 +177,14 @@
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+    }
+
+    public class RoleResponse
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int UserCount { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }
