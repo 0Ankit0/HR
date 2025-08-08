@@ -1,0 +1,400 @@
+@page "/"
+@page "/dashboard"
+@using System.Net.Http.Json
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>HR Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                    </h1>
+                    <p class="text-muted mb-0">Welcome back! Here's your HR overview for today.</p>
+                </div>
+                <div class="text-end">
+                    <small class="text-muted">Last updated: @DateTime.Now.ToString("MMM dd, yyyy - HH:mm")</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Key Metrics Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                                    <i class="bi bi-people text-primary fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title text-muted mb-0">Total Employees</h6>
+                                <h3 class="text-primary mb-0 fw-bold">@(employeeSummary?.TotalEmployees ?? 0)</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                                    <i class="bi bi-person-plus text-success fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title text-muted mb-0">New Hires (This Year)</h6>
+                                <h3 class="text-success mb-0 fw-bold">@(turnoverData?.Hires ?? 0)</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                                    <i class="bi bi-calendar-x text-warning fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title text-muted mb-0">Pending Leave Requests</h6>
+                                <h3 class="text-warning mb-0 fw-bold">12</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                                    <i class="bi bi-briefcase text-info fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title text-muted mb-0">Open Positions</h6>
+                                <h3 class="text-info mb-0 fw-bold">8</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts and Analytics -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pb-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up me-2"></i>Monthly Hiring Trend
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="hiringChart" style="height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white border-0 pb-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-pie-chart me-2"></i>Department Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (employeeSummary?.ByDepartment != null)
+                        {
+                            @foreach (var dept in employeeSummary.ByDepartment.Take(5))
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <span class="fw-medium">Department @dept.Department_ID</span>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress me-3" style="width: 100px; height: 8px;">
+                                            <div class="progress-bar bg-primary" 
+                                                 style="width: @(Math.Round((double)dept.Count / employeeSummary.TotalEmployees * 100))%"></div>
+                                        </div>
+                                        <span class="text-muted small">@dept.Count</span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <a href="/employees/new" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-person-plus fs-4 mb-2"></i>
+                                    Add Employee
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/job-postings/new" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-megaphone fs-4 mb-2"></i>
+                                    Post Job
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/performance-reviews/new" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-star fs-4 mb-2"></i>
+                                    New Review
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/training/new" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-book fs-4 mb-2"></i>
+                                    Schedule Training
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/announcements/new" class="btn btn-outline-secondary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-megaphone fs-4 mb-2"></i>
+                                    Announcement
+                                </a>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/analytics" class="btn btn-outline-dark w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3">
+                                    <i class="bi bi-graph-up fs-4 mb-2"></i>
+                                    View Analytics
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock-history me-2"></i>Recent Activities
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-success"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">New Employee Onboarded</h6>
+                                    <p class="text-muted small mb-0">John Smith joined the Development team</p>
+                                    <small class="text-muted">2 hours ago</small>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-primary"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">Performance Review Completed</h6>
+                                    <p class="text-muted small mb-0">Q2 reviews completed for Marketing team</p>
+                                    <small class="text-muted">5 hours ago</small>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-warning"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">Leave Request Pending</h6>
+                                    <p class="text-muted small mb-0">3 new leave requests need approval</p>
+                                    <small class="text-muted">1 day ago</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-calendar-event me-2"></i>Upcoming Events
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0">
+                                        <div class="bg-primary text-white rounded p-2 text-center" style="width: 50px;">
+                                            <div class="small">JUL</div>
+                                            <div class="fw-bold">15</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-1">All Hands Meeting</h6>
+                                        <p class="text-muted small mb-0">Company-wide quarterly meeting</p>
+                                        <small class="text-muted">10:00 AM - 11:30 AM</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0">
+                                        <div class="bg-success text-white rounded p-2 text-center" style="width: 50px;">
+                                            <div class="small">JUL</div>
+                                            <div class="fw-bold">18</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-1">Training Session</h6>
+                                        <p class="text-muted small mb-0">Leadership Development Workshop</p>
+                                        <small class="text-muted">2:00 PM - 4:00 PM</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 30px;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -23px;
+        top: 0;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 0 2px #e9ecef;
+    }
+
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 3px solid #0d6efd;
+    }
+</style>
+
+@code {
+    private bool isLoading = true;
+    private EmployeeSummaryResponse? employeeSummary;
+    private TurnoverResponse? turnoverData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+        isLoading = false;
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            // Load employee summary
+            var employeeResponse = await Http.GetAsync("/api/analytics/employee-summary");
+            if (employeeResponse.IsSuccessStatusCode)
+            {
+                employeeSummary = await employeeResponse.Content.ReadFromJsonAsync<EmployeeSummaryResponse>();
+            }
+
+            // Load turnover data
+            var turnoverResponse = await Http.GetAsync("/api/analytics/turnover");
+            if (turnoverResponse.IsSuccessStatusCode)
+            {
+                turnoverData = await turnoverResponse.Content.ReadFromJsonAsync<TurnoverResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+        }
+    }
+
+    public class EmployeeSummaryResponse
+    {
+        public int TotalEmployees { get; set; }
+        public List<DepartmentCount> ByDepartment { get; set; } = new();
+        public List<RoleCount> ByRole { get; set; } = new();
+    }
+
+    public class DepartmentCount
+    {
+        public int Department_ID { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class RoleCount
+    {
+        public int JobRole_ID { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class TurnoverResponse
+    {
+        public int Year { get; set; }
+        public int Hires { get; set; }
+        public int Separations { get; set; }
+    }
+}

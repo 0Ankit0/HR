@@ -1,0 +1,555 @@
+@page "/training"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@using Microsoft.JSInterop
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-book me-2"></i>Training Management
+                    </h1>
+                    <p class="text-muted mb-0">Develop your workforce through comprehensive training programs</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" @onclick="() => Navigation.NavigateTo('/training/catalog')">
+                        <i class="bi bi-collection me-2"></i>Training Catalog
+                    </button>
+                    <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/training/new')">
+                        <i class="bi bi-plus-circle me-2"></i>Create Training
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Training Overview -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-journal-check fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Active Trainings</h6>
+                            <h2 class="mb-0 fw-bold">@trainings.Count(t => t.Status == "Scheduled")</h2>
+                            <small class="opacity-75">Currently running</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Total Participants</h6>
+                            <h2 class="mb-0 fw-bold">@GetTotalParticipants()</h2>
+                            <small class="opacity-75">Enrolled employees</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-trophy fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Completion Rate</h6>
+                            <h2 class="mb-0 fw-bold">@GetCompletionRate()%</h2>
+                            <small class="opacity-75">Average completion</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-week fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">This Month</h6>
+                            <h2 class="mb-0 fw-bold">@GetMonthlyTrainings()</h2>
+                            <small class="opacity-75">Trainings scheduled</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Search Trainings</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" 
+                                       @bind="searchQuery" @oninput="OnSearchInput"
+                                       placeholder="Search by title or description...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Category</label>
+                            <select class="form-select" @bind="selectedCategory" @bind:after="OnFilterChange">
+                                <option value="">All Categories</option>
+                                <option value="Technical">Technical</option>
+                                <option value="Leadership">Leadership</option>
+                                <option value="Communication">Communication</option>
+                                <option value="Compliance">Compliance</option>
+                                <option value="Safety">Safety</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Status</label>
+                            <select class="form-select" @bind="selectedStatus" @bind:after="OnFilterChange">
+                                <option value="">All Status</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Active">Active</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Delivery Method</label>
+                            <select class="form-select" @bind="selectedDeliveryMethod" @bind:after="OnFilterChange">
+                                <option value="">All Methods</option>
+                                <option value="Online">Online</option>
+                                <option value="In-Person">In-Person</option>
+                                <option value="Hybrid">Hybrid</option>
+                                <option value="Self-Paced">Self-Paced</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button class="btn btn-outline-secondary" @onclick="ClearFilters">
+                                    <i class="bi bi-x-circle me-1"></i>Clear
+                                </button>
+                                <button class="btn btn-outline-primary" @onclick="ExportTrainingReport">
+                                    <i class="bi bi-download me-1"></i>Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Training Cards -->
+        <div class="row g-4 mb-4">
+            @if (trainings.Any())
+            {
+                @foreach (var training in trainings)
+                {
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-sm h-100 training-card">
+                            <div class="card-header bg-white border-0 pb-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <span class="badge bg-@GetCategoryColor(training.Category) bg-opacity-10 text-@GetCategoryColor(training.Category) border border-@GetCategoryColor(training.Category) mb-2">
+                                            @training.Category
+                                        </span>
+                                        <h5 class="card-title mb-1 fw-bold">@training.Title</h5>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" @onclick="() => ViewTraining(training.Training_ID)">
+                                                <i class="bi bi-eye me-2"></i>View Details</a></li>
+                                            <li><a class="dropdown-item" @onclick="() => EditTraining(training.Training_ID)">
+                                                <i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            <li><a class="dropdown-item" @onclick="() => ManageParticipants(training.Training_ID)">
+                                                <i class="bi bi-people me-2"></i>Manage Participants</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" @onclick="() => DuplicateTraining(training.Training_ID)">
+                                                <i class="bi bi-files me-2"></i>Duplicate</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                    @training.Description
+                                </p>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Duration</small>
+                                            <span class="fw-medium">8 hrs</span> <!-- TODO: Get actual duration from API -->
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Participants</small>
+                                            <span class="fw-medium">@GetParticipantCount(training.Training_ID)</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-12">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="text-muted">Progress</small>
+                                            <small class="text-muted">@GetCompletionPercentage(training.Training_ID)%</small>
+                                        </div>
+                                        <div class="progress" style="height: 6px;">
+                                            <div class="progress-bar bg-success" style="width: @GetCompletionPercentage(training.Training_ID)%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-1 mb-3">
+                                    <span class="badge bg-@GetStatusColor(training.Status) bg-opacity-10 text-@GetStatusColor(training.Status) border border-@GetStatusColor(training.Status)">
+                                        <i class="bi bi-@GetStatusIcon(training.Status) me-1"></i>@training.Status
+                                    </span>
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info">
+                                        <i class="bi bi-laptop me-1"></i>@training.TrainingType
+                                    </span>
+                                    @if (training.IsMandatory)
+                                    {
+                                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Required
+                                        </span>
+                                    }
+                                </div>
+
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button class="btn btn-primary btn-sm flex-fill" 
+                                            @onclick="() => ViewTraining(training.Training_ID)">
+                                        <i class="bi bi-eye me-1"></i>View
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm flex-fill"
+                                            @onclick="() => ManageParticipants(training.Training_ID)">
+                                        <i class="bi bi-people me-1"></i>Participants
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-light border-0">
+                                <div class="d-flex justify-content-between align-items-center small text-muted">
+                                    <span>
+                                        <i class="bi bi-calendar me-1"></i>
+                                        @training.Date.ToString("MMM dd")
+                                    </span>
+                                    <span>
+                                        <i class="bi bi-person me-1"></i>
+                                        @training.Instructor
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="bi bi-book text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No trainings found</h4>
+                        <p class="text-muted">Create your first training program to start developing your workforce.</p>
+                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/training/new')">
+                            <i class="bi bi-plus-circle me-2"></i>Create Training
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Training Calendar -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-calendar3 me-2"></i>Training Calendar
+                            </h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary active">Month</button>
+                                <button class="btn btn-outline-primary">Week</button>
+                                <button class="btn btn-outline-primary">List</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-calendar3" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Training calendar view will be implemented here</p>
+                            <small><!-- TODO: Implement calendar view with API integration --></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .training-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .training-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+
+    .progress {
+        border-radius: 10px;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+    }
+</style>
+
+@code {
+    private List<TrainingResponse> trainings = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string selectedCategory = "";
+    private string selectedStatus = "";
+    private string selectedDeliveryMethod = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTrainings();
+        isLoading = false;
+    }
+
+    private async Task LoadTrainings()
+    {
+        try
+        {
+            var url = "/api/trainings";
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(searchQuery))
+                queryParams.Add($"q={Uri.EscapeDataString(searchQuery)}");
+            
+            if (!string.IsNullOrEmpty(selectedCategory))
+                queryParams.Add($"category={selectedCategory}");
+            
+            if (!string.IsNullOrEmpty(selectedStatus))
+                queryParams.Add($"status={selectedStatus}");
+
+            if (!string.IsNullOrEmpty(selectedDeliveryMethod))
+                queryParams.Add($"deliveryMethod={selectedDeliveryMethod}");
+
+            if (queryParams.Any())
+                url += "?" + string.Join("&", queryParams);
+
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                trainings = await response.Content.ReadFromJsonAsync<List<TrainingResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading trainings: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        await LoadTrainings();
+    }
+
+    private async Task OnFilterChange()
+    {
+        await LoadTrainings();
+    }
+
+    private async Task ClearFilters()
+    {
+        searchQuery = "";
+        selectedCategory = "";
+        selectedStatus = "";
+        selectedDeliveryMethod = "";
+        await LoadTrainings();
+    }
+
+    private void ViewTraining(int trainingId)
+    {
+        Navigation.NavigateTo($"/training/{trainingId}");
+    }
+
+    private void EditTraining(int trainingId)
+    {
+        Navigation.NavigateTo($"/training/{trainingId}/edit");
+    }
+
+    private void ManageParticipants(int trainingId)
+    {
+        Navigation.NavigateTo($"/training/{trainingId}/participants");
+    }
+
+    private async Task DuplicateTraining(int trainingId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"/api/trainings/{trainingId}/duplicate", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadTrainings();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error duplicating training: {ex.Message}");
+        }
+    }
+
+    private Task ExportTrainingReport()
+    {
+        // TODO: Implement actual export functionality with API call
+        Console.WriteLine("Exporting training report...");
+        return Task.CompletedTask;
+    }
+
+    // Helper methods for calculations
+    private int GetTotalParticipants()
+    {
+        return trainings.Sum(t => GetParticipantCount(t.Training_ID));
+    }
+
+    private int GetCompletionRate()
+    {
+        if (!trainings.Any()) return 0;
+        return (int)trainings.Average(t => GetCompletionPercentage(t.Training_ID));
+    }
+
+
+
+    private int GetMonthlyTrainings()
+    {
+        var currentMonth = DateTime.Now.Month;
+        var currentYear = DateTime.Now.Year;
+        return trainings.Count(t => t.Date.Month == currentMonth && t.Date.Year == currentYear);
+    }
+
+    private int GetParticipantCount(int trainingId)
+    {
+        // TODO: Call actual API to get participant count
+        return 0;
+    }
+
+    private int GetCompletionPercentage(int trainingId)
+    {
+        // TODO: Call actual API to get completion percentage
+        return 0;
+    }
+
+    private string GetCategoryColor(string category)
+    {
+        return category switch
+        {
+            "Technical" => "primary",
+            "Leadership" => "success",
+            "Communication" => "info",
+            "Compliance" => "warning",
+            "Safety" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Draft" => "secondary",
+            "Scheduled" => "success",
+            "Completed" => "primary",
+            "Cancelled" => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusIcon(string status)
+    {
+        return status switch
+        {
+            "Draft" => "file-text",
+            "Scheduled" => "play-circle",
+            "Completed" => "check-circle",
+            "Cancelled" => "x-circle",
+            _ => "circle"
+        };
+    }
+
+    public class TrainingItem
+    {
+        public int Training_ID { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string DeliveryMethod { get; set; } = string.Empty;
+        public int Duration { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int Instructor_ID { get; set; }
+        public bool IsRequired { get; set; }
+        public int MaxParticipants { get; set; }
+    }
+
+    public class ApiResponse<T>
+    {
+        public List<T> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}
+}

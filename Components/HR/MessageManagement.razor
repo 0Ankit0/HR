@@ -1,0 +1,526 @@
+@page "/hr/message-management"
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Message Management</h3>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="fas fa-envelope"></i> Send Message
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Filter Tabs -->
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "all" ? "active" : "")" @onclick="() => SetActiveTab(\"all\")">
+                                All Messages
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "unread" ? "active" : "")" @onclick="() => SetActiveTab(\"unread\")">
+                                Unread (@unreadCount)
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "sent" ? "active" : "")" @onclick="() => SetActiveTab(\"sent\")">
+                                Sent Messages
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Search and Filter Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search messages..." @bind="searchTerm" @oninput="FilterMessages" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedSenderId" @bind:after="FilterMessages">
+                                <option value="">All Senders</option>
+                                @foreach (var employee in employees)
+                                {
+                                    <option value="@employee.Employee_ID">@employee.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedRecipientId" @bind:after="FilterMessages">
+                                <option value="">All Recipients</option>
+                                @foreach (var employee in employees)
+                                {
+                                    <option value="@employee.Employee_ID">@employee.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Messages Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Status</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Content Preview</th>
+                                    <th>Sent At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredMessages.Any())
+                                {
+                                    @foreach (var message in pagedMessages)
+                                    {
+                                        <tr class="@(message.IsRead ? "" : "table-warning")">
+                                            <td>
+                                                @if (message.IsRead)
+                                                {
+                                                    <span class="badge bg-success">Read</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning">Unread</span>
+                                                }
+                                            </td>
+                                            <td>@message.SenderName</td>
+                                            <td>@message.RecipientName</td>
+                                            <td>
+                                                @if (message.Content.Length > 80)
+                                                {
+                                                    <text>@message.Content.Substring(0, 80)...</text>
+                                                }
+                                                else
+                                                {
+                                                    @message.Content
+                                                }
+                                            </td>
+                                            <td>@message.SentAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-info" @onclick="() => ViewMessage(message)">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    @if (!message.IsRead)
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-success" @onclick="() => MarkAsRead(message)">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-warning" @onclick="() => MarkAsUnread(message)">
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    }
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteMessage(message)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No messages found</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    @if (totalPages > 1)
+                    {
+                        <nav aria-label="Messages pagination">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                                </li>
+                                @for (int i = 1; i <= totalPages; i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Message Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Send New Message</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @onsubmit="SaveMessage" @onsubmit:preventDefault="true">
+                    <div class="mb-3">
+                        <label for="senderId" class="form-label">From</label>
+                        <select id="senderId" class="form-select" @bind="currentMessage.Sender_ID">
+                            <option value="0">Select Sender</option>
+                            @foreach (var employee in employees)
+                            {
+                                <option value="@employee.Employee_ID">@employee.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="recipientId" class="form-label">To</label>
+                        <select id="recipientId" class="form-select" @bind="currentMessage.Recipient_ID">
+                            <option value="0">Select Recipient</option>
+                            @foreach (var employee in employees)
+                            {
+                                <option value="@employee.Employee_ID">@employee.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="content" class="form-label">Message</label>
+                        <textarea id="content" class="form-control" rows="6" @bind="currentMessage.Content" placeholder="Enter your message..."></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Message Modal -->
+<div class="modal fade @(showViewModal ? "show d-block" : "")" tabindex="-1" style="@(showViewModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Message Details</h5>
+                <button type="button" class="btn-close" @onclick="CloseViewModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedMessage != null)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>From:</strong> @selectedMessage.SenderName
+                        </div>
+                        <div class="col-md-6">
+                            <strong>To:</strong> @selectedMessage.RecipientName
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Sent:</strong> @selectedMessage.SentAt.ToString("MMMM dd, yyyy HH:mm")
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong> 
+                            @if (selectedMessage.IsRead)
+                            {
+                                <span class="badge bg-success">Read</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">Unread</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Message:</strong>
+                        <div class="mt-2 p-3 bg-light rounded">
+                            @selectedMessage.Content
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<MessageResponse> messages = new();
+    private List<MessageResponse> filteredMessages = new();
+    private List<MessageResponse> pagedMessages = new();
+    private List<EmployeeResponse> employees = new();
+    
+    private string searchTerm = "";
+    private string selectedSenderId = "";
+    private string selectedRecipientId = "";
+    private string activeTab = "all";
+    
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+    private int unreadCount = 0;
+    
+    private bool showModal = false;
+    private bool showViewModal = false;
+    
+    private MessageRequest currentMessage = new();
+    private MessageResponse? selectedMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployees();
+        await LoadMessages();
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/employees");
+            if (response.IsSuccessStatusCode)
+            {
+                employees = await response.Content.ReadFromJsonAsync<List<EmployeeResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading employees:", ex.Message);
+        }
+    }
+
+    private async Task LoadMessages()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/messages");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<MessageListResponse>();
+                messages = result?.Items ?? new List<MessageResponse>();
+                unreadCount = messages.Count(m => !m.IsRead);
+                FilterMessages();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading messages:", ex.Message);
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        currentPage = 1;
+        FilterMessages();
+    }
+
+    private void FilterMessages()
+    {
+        var query = messages.AsEnumerable();
+
+        // Apply tab filter
+        switch (activeTab)
+        {
+            case "unread":
+                query = query.Where(m => !m.IsRead);
+                break;
+            case "sent":
+                // This would need current user context - for now show all
+                break;
+        }
+
+        // Apply search and filters
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            query = query.Where(m => 
+                m.Content.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                (m.SenderName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (m.RecipientName?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (!string.IsNullOrEmpty(selectedSenderId) && int.TryParse(selectedSenderId, out var senderId))
+        {
+            query = query.Where(m => m.Sender_ID == senderId);
+        }
+
+        if (!string.IsNullOrEmpty(selectedRecipientId) && int.TryParse(selectedRecipientId, out var recipientId))
+        {
+            query = query.Where(m => m.Recipient_ID == recipientId);
+        }
+
+        filteredMessages = query.OrderByDescending(m => m.SentAt).ToList();
+        UpdatePagedData();
+    }
+
+    private void UpdatePagedData()
+    {
+        totalPages = (int)Math.Ceiling((double)filteredMessages.Count / pageSize);
+        currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
+        
+        pagedMessages = filteredMessages
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedData();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        selectedSenderId = "";
+        selectedRecipientId = "";
+        currentPage = 1;
+        FilterMessages();
+    }
+
+    private void ShowCreateModal()
+    {
+        currentMessage = new MessageRequest();
+        showModal = true;
+    }
+
+    private void ViewMessage(MessageResponse message)
+    {
+        selectedMessage = message;
+        showViewModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentMessage = new();
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        selectedMessage = null;
+    }
+
+    private async Task SaveMessage()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(currentMessage);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var response = await Http.PostAsync("/api/messages", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadMessages();
+                CloseModal();
+                await JSRuntime.InvokeVoidAsync("alert", "Message sent successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error sending message. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error sending message:", ex.Message);
+            await JSRuntime.InvokeVoidAsync("alert", "Error sending message. Please try again.");
+        }
+    }
+
+    private async Task MarkAsRead(MessageResponse message)
+    {
+        try
+        {
+            var response = await Http.PatchAsync($"/api/messages/{message.Message_ID}/read", null);
+            if (response.IsSuccessStatusCode)
+            {
+                message.IsRead = true;
+                unreadCount--;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error marking message as read:", ex.Message);
+        }
+    }
+
+    private async Task MarkAsUnread(MessageResponse message)
+    {
+        try
+        {
+            var response = await Http.PatchAsync($"/api/messages/{message.Message_ID}/unread", null);
+            if (response.IsSuccessStatusCode)
+            {
+                message.IsRead = false;
+                unreadCount++;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error marking message as unread:", ex.Message);
+        }
+    }
+
+    private async Task DeleteMessage(MessageResponse message)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this message?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/messages/{message.Message_ID}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadMessages();
+                    await JSRuntime.InvokeVoidAsync("alert", "Message deleted successfully!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting message. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Error deleting message:", ex.Message);
+                await JSRuntime.InvokeVoidAsync("alert", "Error deleting message. Please try again.");
+            }
+        }
+    }
+
+    public class MessageListResponse
+    {
+        public List<MessageResponse> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}

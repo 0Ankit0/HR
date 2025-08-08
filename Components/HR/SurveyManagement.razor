@@ -1,0 +1,359 @@
+@page "/hr/survey-management"
+@using global::HR.Models
+@using global::HR.Data
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Survey Management</h3>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="fas fa-plus"></i> Create Survey
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Search Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search surveys..." @bind="searchTerm" @oninput="FilterSurveys" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <input type="date" class="form-control" @bind="selectedDateFilter" @bind:after="FilterSurveys" placeholder="Filter by date" />
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Surveys Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Description</th>
+                                    <th>Date Created</th>
+                                    <th>Created By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredSurveys?.Any() == true)
+                                {
+                                    @foreach (var survey in filteredSurveys)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-poll text-info me-2"></i>
+                                                    <strong>@survey.Title</strong>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="text-truncate" style="max-width: 300px;" title="@survey.Description">
+                                                    @survey.Description
+                                                </div>
+                                            </td>
+                                            <td>@survey.DateCreated.ToString("yyyy-MM-dd")</td>
+                                            <td>@(survey.CreatedBy ?? "System")</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-info" @onclick="() => ShowViewModal(survey)">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditModal(survey)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSurvey(survey.Survey_ID)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No surveys found</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(isEditing ? "Edit Survey" : "Create Survey")</h5>
+                <button type="button" class="btn-close" @onclick="HideModal"></button>
+            </div>
+            <EditForm Model="currentSurvey" OnValidSubmit="SaveSurvey">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">Survey Title *</label>
+                                <InputText class="form-control" @bind-Value="currentSurvey.Title" placeholder="Survey title..." required />
+                                <ValidationMessage For="@(() => currentSurvey.Title)" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Date Created *</label>
+                                <InputDate class="form-control" @bind-Value="currentSurvey.DateCreated" required />
+                                <ValidationMessage For="@(() => currentSurvey.DateCreated)" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Created By</label>
+                                <InputText class="form-control" @bind-Value="currentSurvey.CreatedBy" placeholder="Creator name..." />
+                                <ValidationMessage For="@(() => currentSurvey.CreatedBy)" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <InputTextArea class="form-control" @bind-Value="currentSurvey.Description" rows="5" placeholder="Survey description..." />
+                                <ValidationMessage For="@(() => currentSurvey.Description)" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">@(isEditing ? "Update" : "Create") Survey</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade @(showViewModal ? "show d-block" : "")" tabindex="-1" style="@(showViewModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Survey Details</h5>
+                <button type="button" class="btn-close" @onclick="HideViewModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (viewSurvey != null)
+                {
+                    <div class="text-center mb-4">
+                        <i class="fas fa-poll fa-3x text-info"></i>
+                        <h3 class="mt-2">@viewSurvey.Title</h3>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Date Created:</strong>
+                            <p>@viewSurvey.DateCreated.ToString("yyyy-MM-dd")</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Created By:</strong>
+                            <p>@(viewSurvey.CreatedBy ?? "System")</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Description:</strong>
+                            <div class="border rounded p-3 mt-2" style="background-color: #f8f9fa;">
+                                @(viewSurvey.Description ?? "No description provided")
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="HideViewModal">Close</button>
+                @if (viewSurvey != null)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="() => ShowEditModal(viewSurvey)">
+                        <i class="fas fa-edit"></i> Edit Survey
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Survey> surveys = new();
+    private List<Survey> filteredSurveys = new();
+    
+    private Survey currentSurvey = new();
+    private Survey? viewSurvey = null;
+    private bool showModal = false;
+    private bool showViewModal = false;
+    private bool isEditing = false;
+    
+    private string searchTerm = "";
+    private string selectedDateFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/feedback/surveys");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                surveys = JsonSerializer.Deserialize<List<Survey>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+
+            FilterSurveys();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading data: {ex.Message}");
+        }
+    }
+
+    private void FilterSurveys()
+    {
+        filteredSurveys = surveys.Where(s =>
+            (string.IsNullOrEmpty(searchTerm) || 
+             s.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             (s.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+             (s.CreatedBy?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (string.IsNullOrEmpty(selectedDateFilter) || s.DateCreated.Date == DateTime.Parse(selectedDateFilter).Date)
+        ).OrderByDescending(s => s.DateCreated).ToList();
+        
+        StateHasChanged();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        selectedDateFilter = "";
+        FilterSurveys();
+    }
+
+    private void ShowCreateModal()
+    {
+        currentSurvey = new Survey
+        {
+            DateCreated = DateTime.Today
+        };
+        isEditing = false;
+        showModal = true;
+    }
+
+    private void ShowEditModal(Survey survey)
+    {
+        currentSurvey = new Survey
+        {
+            Survey_ID = survey.Survey_ID,
+            Title = survey.Title,
+            Description = survey.Description,
+            DateCreated = survey.DateCreated,
+            CreatedBy = survey.CreatedBy
+        };
+        isEditing = true;
+        showModal = true;
+        showViewModal = false; // Close view modal if open
+    }
+
+    private void ShowViewModal(Survey survey)
+    {
+        viewSurvey = survey;
+        showViewModal = true;
+    }
+
+    private void HideModal()
+    {
+        showModal = false;
+        currentSurvey = new();
+    }
+
+    private void HideViewModal()
+    {
+        showViewModal = false;
+        viewSurvey = null;
+    }
+
+    private async Task SaveSurvey()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(currentSurvey);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            HttpResponseMessage response;
+            if (isEditing)
+            {
+                response = await Http.PutAsync($"/api/feedback/surveys/{currentSurvey.Survey_ID}", content);
+            }
+            else
+            {
+                response = await Http.PostAsync("/api/feedback/surveys", content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                HideModal();
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", $"Survey {(isEditing ? "updated" : "created")} successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error {(isEditing ? "updating" : "creating")} survey.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteSurvey(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this survey?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/feedback/surveys/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadData();
+                    await JSRuntime.InvokeVoidAsync("alert", "Survey deleted successfully!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting survey.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            }
+        }
+    }
+}

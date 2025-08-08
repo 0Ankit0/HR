@@ -1,0 +1,631 @@
+@page "/interviews"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-calendar-check me-2"></i>Interview Management
+                    </h1>
+                    <p class="text-muted mb-0">Schedule and track interviews</p>
+                </div>
+                <button class="btn btn-primary" @onclick="OpenScheduleModal">
+                    <i class="bi bi-plus-circle me-2"></i>Schedule Interview
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-calendar-check text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalInterviews</div>
+                            <div class="text-muted small">Total Interviews</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@scheduledInterviews</div>
+                            <div class="text-muted small">Scheduled</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@completedInterviews</div>
+                            <div class="text-muted small">Completed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-calendar-event text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@todayInterviews</div>
+                            <div class="text-muted small">Today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar View Toggle -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="viewMode" id="listView" checked @onchange="() => SetViewMode(false)">
+                <label class="btn btn-outline-primary" for="listView">
+                    <i class="bi bi-list me-1"></i>List View
+                </label>
+                <input type="radio" class="btn-check" name="viewMode" id="calendarView" @onchange="() => SetViewMode(true)">
+                <label class="btn btn-outline-primary" for="calendarView">
+                    <i class="bi bi-calendar me-1"></i>Calendar View
+                </label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" 
+                               placeholder="Search interviews..." 
+                               @bind="searchQuery" @onkeyup="OnSearchChanged" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" @bind="statusFilter" @bind:after="ApplyFilters">
+                        <option value="">All Statuses</option>
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-secondary w-100" @onclick="ExportData">
+                        <i class="bi bi-download me-1"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!isCalendarView)
+    {
+        <!-- List View -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                @if (isLoading)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="mt-2 text-muted">Loading interviews...</div>
+                    </div>
+                }
+                else if (interviews.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="border-0 fw-semibold">Candidate</th>
+                                    <th class="border-0 fw-semibold">Position</th>
+                                    <th class="border-0 fw-semibold">Date & Time</th>
+                                    <th class="border-0 fw-semibold">Interviewer</th>
+                                    <th class="border-0 fw-semibold">Type</th>
+                                    <th class="border-0 fw-semibold">Status</th>
+                                    <th class="border-0 fw-semibold text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var interview in pagedInterviews)
+                                {
+                                    <tr>
+                                        <td class="align-middle">
+                                            <div class="d-flex align-items-center">
+                                                <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                                    <i class="bi bi-person text-primary"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">@interview.CandidateName</div>
+                                                    <small class="text-muted">@interview.CandidateEmail</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle">
+                                            <span class="badge bg-light text-dark">@interview.Position</span>
+                                        </td>
+                                        <td class="align-middle">
+                                            <div>@interview.ScheduledAt.ToString("MMM dd, yyyy")</div>
+                                            <small class="text-muted">@interview.ScheduledAt.ToString("h:mm tt")</small>
+                                        </td>
+                                        <td class="align-middle">@interview.Interviewer</td>
+                                        <td class="align-middle">
+                                            <span class="badge @GetTypeBadgeClass(interview.InterviewType)">
+                                                @interview.InterviewType
+                                            </span>
+                                        </td>
+                                        <td class="align-middle">
+                                            <span class="badge @GetStatusBadgeClass(interview.Status)">
+                                                @interview.Status
+                                            </span>
+                                        </td>
+                                        <td class="align-middle text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" @onclick="() => ViewInterview(interview.Interview_ID)">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" @onclick="() => EditInterview(interview)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                @if (interview.Status == "Scheduled")
+                                                {
+                                                    <button class="btn btn-outline-success" @onclick="() => StartInterview(interview.Interview_ID)">
+                                                        <i class="bi bi-play"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="card-footer bg-transparent border-top-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">
+                                Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredInterviews.Count) of @filteredInterviews.Count results
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </button>
+                                    </li>
+                                    @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                                    {
+                                        <li class="page-item @(i == currentPage ? "active" : "")">
+                                            <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                        </li>
+                                    }
+                                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == totalPages)">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-check text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="text-muted mt-3">No interviews found</h5>
+                        <p class="text-muted">Schedule your first interview to get started.</p>
+                        <button class="btn btn-primary" @onclick="OpenScheduleModal">
+                            <i class="bi bi-plus-circle me-2"></i>Schedule Interview
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Calendar View -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="text-center py-5">
+                    <i class="bi bi-calendar3 text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">Calendar View</h5>
+                    <p class="text-muted">Calendar integration would be implemented here using a calendar component.</p>
+                    <button class="btn btn-outline-primary" @onclick="() => SetViewMode(false)">
+                        <i class="bi bi-list me-2"></i>Switch to List View
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Schedule Interview Modal -->
+<div class="modal fade @(showScheduleModal ? "show d-block" : "")" tabindex="-1" style="@(showScheduleModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-calendar-plus me-2"></i>@(isEditing ? "Edit Interview" : "Schedule Interview")
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseScheduleModal"></button>
+            </div>
+            <form @onsubmit="SaveInterview" @onsubmit:preventDefault="true">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Candidate Name <span class="text-danger">*</span></label>
+                                <input @bind="currentInterview.CandidateName" class="form-control" placeholder="Enter candidate name" required />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Candidate Email</label>
+                                <input @bind="currentInterview.CandidateEmail" class="form-control" placeholder="Enter candidate email" type="email" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Position</label>
+                                <input @bind="currentInterview.Position" class="form-control" placeholder="Enter position" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Interviewer</label>
+                                <input @bind="currentInterview.Interviewer" class="form-control" placeholder="Enter interviewer name" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Interview Date & Time</label>
+                                <input @bind="currentInterview.ScheduledAt" class="form-control" type="datetime-local" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Interview Type</label>
+                                <select @bind="currentInterview.InterviewType" class="form-select">
+                                    <option value="Phone">Phone</option>
+                                    <option value="Video">Video</option>
+                                    <option value="In-Person">In-Person</option>
+                                    <option value="Panel">Panel</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea @bind="currentInterview.Notes" class="form-control" rows="3" placeholder="Interview notes or instructions"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseScheduleModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-check-circle me-2"></i>@(isEditing ? "Update" : "Schedule") Interview
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<InterviewResponse> interviews = new();
+    private List<InterviewResponse> filteredInterviews = new();
+    private List<InterviewResponse> pagedInterviews = new();
+    private string searchQuery = string.Empty;
+    private string statusFilter = string.Empty;
+    private bool isLoading = true;
+    private bool showScheduleModal = false;
+    private bool isEditing = false;
+    private bool isSaving = false;
+    private bool isCalendarView = false;
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages => (int)Math.Ceiling((double)filteredInterviews.Count / pageSize);
+    
+    // Stats
+    private int totalInterviews => interviews.Count;
+    private int scheduledInterviews => interviews.Count(i => i.Status == "Scheduled");
+    private int completedInterviews => interviews.Count(i => i.Status == "Completed");
+    private int todayInterviews => interviews.Count(i => i.ScheduledAt.Date == DateTime.Today);
+    
+    private InterviewRequest currentInterview = new();
+    private int editingId = 0;
+
+    public class ApiResponse
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<InterviewResponse> Items { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInterviews();
+    }
+
+    private async Task LoadInterviews()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await Http.GetAsync("/api/interviews");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ApiResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                
+                if (result?.Items != null)
+                {
+                    interviews = result.Items;
+                }
+                else
+                {
+                    interviews = new List<InterviewResponse>();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"API Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                interviews = new List<InterviewResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading interviews: {ex.Message}");
+            interviews = new List<InterviewResponse>();
+        }
+        finally
+        {
+            isLoading = false;
+            ApplyFilters();
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredInterviews = interviews.Where(i => 
+            (string.IsNullOrEmpty(searchQuery) || 
+             i.CandidateName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+             i.Position.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+             i.Interviewer.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(statusFilter) || i.Status == statusFilter)
+        ).OrderBy(i => i.ScheduledAt).ToList();
+        
+        currentPage = 1;
+        UpdatePagedResults();
+    }
+
+    private void UpdatePagedResults()
+    {
+        pagedInterviews = filteredInterviews
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged()
+    {
+        await Task.Delay(300);
+        ApplyFilters();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedResults();
+        }
+    }
+
+    private void SetViewMode(bool calendarView)
+    {
+        isCalendarView = calendarView;
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Scheduled" => "bg-warning",
+        "In Progress" => "bg-info",
+        "Completed" => "bg-success",
+        "Cancelled" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetTypeBadgeClass(string type) => type switch
+    {
+        "Phone" => "bg-info",
+        "Video" => "bg-primary",
+        "In-Person" => "bg-success",
+        "Panel" => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private void OpenScheduleModal()
+    {
+        currentInterview = new InterviewRequest { ScheduledAt = DateTime.Now.AddDays(1), InterviewType = "Video" };
+        editingId = 0;
+        isEditing = false;
+        showScheduleModal = true;
+    }
+
+    private void EditInterview(InterviewResponse interview)
+    {
+        currentInterview = new InterviewRequest
+        {
+            Application_ID = interview.Application_ID,
+            CandidateName = interview.CandidateName,
+            CandidateEmail = interview.CandidateEmail,
+            Position = interview.Position,
+            Interviewer = interview.Interviewer,
+            ScheduledAt = interview.ScheduledAt,
+            InterviewType = interview.InterviewType,
+            Notes = interview.Notes
+        };
+        editingId = interview.Interview_ID;
+        isEditing = true;
+        showScheduleModal = true;
+    }
+
+    private void CloseScheduleModal()
+    {
+        showScheduleModal = false;
+        currentInterview = new InterviewRequest();
+        editingId = 0;
+    }
+
+    private async Task SaveInterview()
+    {
+        isSaving = true;
+        try
+        {
+            string url;
+            HttpResponseMessage response;
+            var json = JsonSerializer.Serialize(currentInterview, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            if (isEditing)
+            {
+                // Update existing interview
+                url = $"/api/interviews/{editingId}";
+                response = await Http.PutAsync(url, content);
+            }
+            else
+            {
+                // Create new interview
+                url = "/api/interviews";
+                response = await Http.PostAsync(url, content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadInterviews(); // Reload the data
+                CloseScheduleModal();
+            }
+            else
+            {
+                Console.WriteLine($"Error saving interview: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                // TODO: Show user-friendly error message
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving interview: {ex.Message}");
+            // TODO: Show user-friendly error message
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ViewInterview(int interviewId)
+    {
+        Console.WriteLine($"Viewing interview {interviewId}");
+    }
+
+    private async Task StartInterview(int interviewId)
+    {
+        try
+        {
+            var statusUpdate = new InterviewStatusUpdateRequest { Status = "In Progress" };
+            var json = JsonSerializer.Serialize(statusUpdate, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            var response = await Http.PatchAsync($"/api/interviews/{interviewId}/status", content);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadInterviews(); // Reload the data
+            }
+            else
+            {
+                Console.WriteLine($"Error updating interview status: {response.StatusCode}");
+                // TODO: Show user-friendly error message
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting interview: {ex.Message}");
+            // TODO: Show user-friendly error message
+        }
+    }
+
+    private async Task ExportData()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Export functionality would be implemented here");
+    }
+
+}

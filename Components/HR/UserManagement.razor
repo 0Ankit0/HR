@@ -1,0 +1,536 @@
+@page "/users"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-person-gear me-2"></i>User Management
+                    </h1>
+                    <p class="text-muted mb-0">Manage system users, roles, and permissions</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" @onclick="() => Navigation.NavigateTo('/users/roles')">
+                        <i class="bi bi-shield-check me-2"></i>Manage Roles
+                    </button>
+                    <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/users/new')">
+                        <i class="bi bi-person-plus me-2"></i>Add User
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Statistics -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                                <i class="bi bi-people text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-0">Total Users</h6>
+                            <h3 class="text-primary mb-0 fw-bold">@users.Count</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-success border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-0">Active Users</h6>
+                            <h3 class="text-success mb-0 fw-bold">@users.Count(u => u.IsActive)</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                                <i class="bi bi-shield text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-0">Admin Users</h6>
+                            <h3 class="text-warning mb-0 fw-bold">@users.Count(u => u.Role == "Admin")</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-info border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                                <i class="bi bi-clock text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title text-muted mb-0">Recent Logins</h6>
+                            <h3 class="text-info mb-0 fw-bold">@users.Count(u => u.LastLogin > DateTime.Now.AddDays(-7))</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-medium text-muted">Search Users</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" 
+                                       @bind="searchQuery" @oninput="OnSearchInput"
+                                       placeholder="Search by name or email...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Role</label>
+                            <select class="form-select" value="@selectedRole" @onchange="OnRoleFilterChange">
+                                <option value="">All Roles</option>
+                                <option value="Admin">Admin</option>
+                                <option value="HR Manager">HR Manager</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Employee">Employee</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Status</label>
+                            <select class="form-select" value="@selectedStatus" @onchange="OnStatusFilterChange">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Locked">Locked</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button class="btn btn-outline-secondary" @onclick="ClearFilters">
+                                    <i class="bi bi-x-circle me-1"></i>Clear
+                                </button>
+                                <button class="btn btn-outline-primary" @onclick="ExportUsers">
+                                    <i class="bi bi-download me-1"></i>Export
+                                </button>
+                                <button class="btn btn-outline-warning" @onclick="BulkActions">
+                                    <i class="bi bi-list-check me-1"></i>Bulk Actions
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Users Table -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="card-title mb-0">System Users</h5>
+            </div>
+            <div class="card-body p-0">
+                @if (users.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="border-0">
+                                        <input type="checkbox" class="form-check-input">
+                                    </th>
+                                    <th class="border-0">User</th>
+                                    <th class="border-0">Role</th>
+                                    <th class="border-0">Status</th>
+                                    <th class="border-0">Last Login</th>
+                                    <th class="border-0">Created</th>
+                                    <th class="border-0">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in users.Take(20))
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="form-check-input">
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="rounded-circle bg-primary bg-opacity-10 me-3 d-flex align-items-center justify-content-center" 
+                                                     style="width: 40px; height: 40px;">
+                                                    <i class="bi bi-person text-primary"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-medium">@user.Name</div>
+                                                    <small class="text-muted">@user.Email</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@GetRoleColor(user.Role) bg-opacity-10 text-@GetRoleColor(user.Role) border border-@GetRoleColor(user.Role)">
+                                                @user.Role
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@GetStatusColor(user.IsActive) bg-opacity-10 text-@GetStatusColor(user.IsActive) border border-@GetStatusColor(user.IsActive)">
+                                                <i class="bi bi-@GetStatusIcon(user.IsActive) me-1"></i>
+                                                @(user.IsActive ? "Active" : "Inactive")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (user.LastLogin != DateTime.MinValue)
+                                            {
+                                                <span>@user.LastLogin.ToString("MMM dd, yyyy")</span>
+                                                <br>
+                                                <small class="text-muted">@user.LastLogin.ToString("HH:mm")</small>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Never</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">@user.CreatedDate.ToString("MMM dd, yyyy")</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" 
+                                                        @onclick="() => ViewUser(user.Id)"
+                                                        title="View Details">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" 
+                                                        @onclick="() => EditUser(user.Id)"
+                                                        title="Edit User">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-outline-@(user.IsActive ? "warning" : "success")" 
+                                                        @onclick="() => ToggleUserStatus(user.Id, user.IsActive)"
+                                                        title="@(user.IsActive ? "Deactivate" : "Activate")">
+                                                    <i class="bi bi-@(user.IsActive ? "pause" : "play")"></i>
+                                                </button>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-outline-secondary" type="button" 
+                                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                                        <i class="bi bi-three-dots-vertical"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        <li><a class="dropdown-item" @onclick="() => ResetPassword(user.Id)">
+                                                            <i class="bi bi-key me-2"></i>Reset Password</a></li>
+                                                        <li><a class="dropdown-item" @onclick="() => ManagePermissions(user.Id)">
+                                                            <i class="bi bi-shield-check me-2"></i>Permissions</a></li>
+                                                        <li><hr class="dropdown-divider"></li>
+                                                        <li><a class="dropdown-item text-danger" @onclick="() => DeleteUser(user.Id)">
+                                                            <i class="bi bi-trash me-2"></i>Delete</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-person-gear text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No users found</h4>
+                        <p class="text-muted">Try adjusting your search criteria or add new users.</p>
+                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/users/new')">
+                            <i class="bi bi-person-plus me-2"></i>Add First User
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/users/bulk-import')">
+                                    <i class="bi bi-upload fs-4 mb-2"></i>
+                                    Bulk Import Users
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/users/roles')">
+                                    <i class="bi bi-shield-check fs-4 mb-2"></i>
+                                    Role Management
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/users/permissions')">
+                                    <i class="bi bi-gear fs-4 mb-2"></i>
+                                    Permission Settings
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/users/audit-log')">
+                                    <i class="bi bi-clock-history fs-4 mb-2"></i>
+                                    Audit Log
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .table-hover tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .border-4 {
+        border-width: 4px !important;
+    }
+</style>
+
+@code {
+    private List<UserResponse> users = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string selectedRole = "";
+    private string selectedStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+        isLoading = false;
+    }
+
+    private async Task LoadUsers()
+    {
+        try
+        {
+            var url = "/api/users";
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(searchQuery))
+                queryParams.Add($"q={Uri.EscapeDataString(searchQuery)}");
+            
+            if (!string.IsNullOrEmpty(selectedRole))
+                queryParams.Add($"role={selectedRole}");
+            
+            if (!string.IsNullOrEmpty(selectedStatus))
+                queryParams.Add($"status={selectedStatus}");
+
+            if (queryParams.Any())
+                url += "?" + string.Join("&", queryParams);
+
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                users = await response.Content.ReadFromJsonAsync<List<UserResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        await LoadUsers();
+    }
+
+    private async Task OnRoleFilterChange(ChangeEventArgs e)
+    {
+        selectedRole = e.Value?.ToString() ?? "";
+        await LoadUsers();
+    }
+
+    private async Task OnStatusFilterChange(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString() ?? "";
+        await LoadUsers();
+    }
+
+    private async Task OnFilterChange()
+    {
+        await LoadUsers();
+    }
+
+    private async Task ClearFilters()
+    {
+        searchQuery = "";
+        selectedRole = "";
+        selectedStatus = "";
+        await LoadUsers();
+    }
+
+    private void ViewUser(string userId)
+    {
+        Navigation.NavigateTo($"/users/{userId}");
+    }
+
+    private void EditUser(string userId)
+    {
+        Navigation.NavigateTo($"/users/{userId}/edit");
+    }
+
+    private async Task ToggleUserStatus(string userId, bool currentStatus)
+    {
+        try
+        {
+            var action = currentStatus ? "deactivate" : "activate";
+            var response = await Http.PostAsync($"/api/users/{userId}/{action}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling user status: {ex.Message}");
+        }
+    }
+
+    private async Task ResetPassword(string userId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"/api/users/{userId}/reset-password", null);
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Password reset email sent.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error resetting password: {ex.Message}");
+        }
+    }
+
+    private void ManagePermissions(string userId)
+    {
+        Navigation.NavigateTo($"/users/{userId}/permissions");
+    }
+
+    private async Task DeleteUser(string userId)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/users/{userId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsers();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting user: {ex.Message}");
+        }
+    }
+
+    private Task ExportUsers()
+    {
+        Console.WriteLine("Exporting users...");
+        return Task.CompletedTask;
+    }
+
+    private Task BulkActions()
+    {
+        Console.WriteLine("Opening bulk actions...");
+        return Task.CompletedTask;
+    }
+
+    private string GetRoleColor(string role)
+    {
+        return role switch
+        {
+            "Admin" => "danger",
+            "HR Manager" => "warning",
+            "Manager" => "info",
+            "Employee" => "success",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusColor(bool isActive)
+    {
+        return isActive ? "success" : "secondary";
+    }
+
+    private string GetStatusIcon(bool isActive)
+    {
+        return isActive ? "check-circle" : "x-circle";
+    }
+
+    public class UserResponse
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime LastLogin { get; set; }
+        public DateTime CreatedDate { get; set; }
+    }
+}

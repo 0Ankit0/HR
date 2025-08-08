@@ -1,0 +1,343 @@
+@page "/hr/employee-project-assignments"
+@using global::HR.Models
+@using global::HR.Data
+@using System.Text.Json
+@using System.Text
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Employee-Project Assignments</h3>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="fas fa-plus"></i> Assign Employee to Project
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Search and Filter Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search assignments..." @bind="searchTerm" @oninput="FilterAssignments" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedProjectFilter" @bind:after="FilterAssignments">
+                                <option value="">All Projects</option>
+                                @foreach (var project in projects)
+                                {
+                                    <option value="@project.Project_ID">@project.Project_Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedEmployeeFilter" @bind:after="FilterAssignments">
+                                <option value="">All Employees</option>
+                                @foreach (var employee in employees)
+                                {
+                                    <option value="@employee.Employee_ID">@employee.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Assignments Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Project</th>
+                                    <th>Role</th>
+                                    <th>Assignment Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredAssignments?.Any() == true)
+                                {
+                                    @foreach (var assignment in filteredAssignments)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @{
+                                                    var employee = employees.FirstOrDefault(e => e.Employee_ID == assignment.Employee_ID);
+                                                }
+                                                @if (employee != null)
+                                                {
+                                                    <span>@employee.Name</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var project = projects.FirstOrDefault(p => p.Project_ID == assignment.Project_ID);
+                                                }
+                                                @if (project != null)
+                                                {
+                                                    <span>@project.Project_Name</span>
+                                                }
+                                            </td>
+                                            <td>@assignment.Role_on_Project</td>
+                                            <td>@assignment.Assignment_Date.ToString("yyyy-MM-dd")</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditModal(assignment)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAssignment(assignment.Employee_Project_ID)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No assignments found</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(isEditing ? "Edit Assignment" : "Assign Employee to Project")</h5>
+                <button type="button" class="btn-close" @onclick="HideModal"></button>
+            </div>
+            <EditForm Model="currentAssignment" OnValidSubmit="SaveAssignment">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Employee *</label>
+                                <select class="form-select" @bind="currentAssignment.Employee_ID" required>
+                                    <option value="0">Select Employee</option>
+                                    @foreach (var employee in employees)
+                                    {
+                                        <option value="@employee.Employee_ID">@employee.Name</option>
+                                    }
+                                </select>
+                                <ValidationMessage For="@(() => currentAssignment.Employee_ID)" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Project *</label>
+                                <select class="form-select" @bind="currentAssignment.Project_ID" required>
+                                    <option value="0">Select Project</option>
+                                    @foreach (var project in projects)
+                                    {
+                                        <option value="@project.Project_ID">@project.Project_Name</option>
+                                    }
+                                </select>
+                                <ValidationMessage For="@(() => currentAssignment.Project_ID)" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Role on Project</label>
+                                <InputText class="form-control" @bind-Value="currentAssignment.Role_on_Project" placeholder="Project role..." />
+                                <ValidationMessage For="@(() => currentAssignment.Role_on_Project)" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Assignment Date *</label>
+                                <InputDate class="form-control" @bind-Value="currentAssignment.Assignment_Date" required />
+                                <ValidationMessage For="@(() => currentAssignment.Assignment_Date)" class="text-danger" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">@(isEditing ? "Update" : "Create") Assignment</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Employee_Project> assignments = new();
+    private List<Employee_Project> filteredAssignments = new();
+    private List<global::HR.Models.Employee> employees = new();
+    private List<Project> projects = new();
+    
+    private Employee_Project currentAssignment = new();
+    private bool showModal = false;
+    private bool isEditing = false;
+    
+    private string searchTerm = "";
+    private string selectedProjectFilter = "";
+    private string selectedEmployeeFilter = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var assignmentsResponse = await Http.GetAsync("/api/employeeprojects");
+            if (assignmentsResponse.IsSuccessStatusCode)
+            {
+                var assignmentsJson = await assignmentsResponse.Content.ReadAsStringAsync();
+                assignments = JsonSerializer.Deserialize<List<Employee_Project>>(assignmentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+
+            var employeesResponse = await Http.GetAsync("/api/employees");
+            if (employeesResponse.IsSuccessStatusCode)
+            {
+                var employeesJson = await employeesResponse.Content.ReadAsStringAsync();
+                employees = JsonSerializer.Deserialize<List<global::HR.Models.Employee>>(employeesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+
+            var projectsResponse = await Http.GetAsync("/api/projects");
+            if (projectsResponse.IsSuccessStatusCode)
+            {
+                var projectsJson = await projectsResponse.Content.ReadAsStringAsync();
+                projects = JsonSerializer.Deserialize<List<Project>>(projectsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+            }
+
+            FilterAssignments();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading data: {ex.Message}");
+        }
+    }
+
+    private void FilterAssignments()
+    {
+        filteredAssignments = assignments.Where(a =>
+            (string.IsNullOrEmpty(searchTerm) || 
+             employees.Any(e => e.Employee_ID == a.Employee_ID && e.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+             projects.Any(p => p.Project_ID == a.Project_ID && p.Project_Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+             (a.Role_on_Project?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+            (string.IsNullOrEmpty(selectedProjectFilter) || a.Project_ID.ToString() == selectedProjectFilter) &&
+            (string.IsNullOrEmpty(selectedEmployeeFilter) || a.Employee_ID.ToString() == selectedEmployeeFilter)
+        ).ToList();
+        
+        StateHasChanged();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        selectedProjectFilter = "";
+        selectedEmployeeFilter = "";
+        FilterAssignments();
+    }
+
+    private void ShowCreateModal()
+    {
+        currentAssignment = new Employee_Project
+        {
+            Assignment_Date = DateTime.Today
+        };
+        isEditing = false;
+        showModal = true;
+    }
+
+    private void ShowEditModal(Employee_Project assignment)
+    {
+        currentAssignment = new Employee_Project
+        {
+            Employee_Project_ID = assignment.Employee_Project_ID,
+            Employee_ID = assignment.Employee_ID,
+            Project_ID = assignment.Project_ID,
+            Role_on_Project = assignment.Role_on_Project,
+            Assignment_Date = assignment.Assignment_Date
+        };
+        isEditing = true;
+        showModal = true;
+    }
+
+    private void HideModal()
+    {
+        showModal = false;
+        currentAssignment = new();
+    }
+
+    private async Task SaveAssignment()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(currentAssignment);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            HttpResponseMessage response;
+            if (isEditing)
+            {
+                response = await Http.PutAsync($"/api/employeeprojects/{currentAssignment.Employee_Project_ID}", content);
+            }
+            else
+            {
+                response = await Http.PostAsync("/api/employeeprojects", content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                HideModal();
+                await LoadData();
+                await JSRuntime.InvokeVoidAsync("alert", $"Assignment {(isEditing ? "updated" : "created")} successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error {(isEditing ? "updating" : "creating")} assignment.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteAssignment(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this assignment?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/employeeprojects/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadData();
+                    await JSRuntime.InvokeVoidAsync("alert", "Assignment deleted successfully!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting assignment.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            }
+        }
+    }
+}

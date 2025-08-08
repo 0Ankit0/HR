@@ -1,0 +1,421 @@
+@page "/employees"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-people me-2"></i>Employee Management
+                    </h1>
+                    <p class="text-muted mb-0">Manage your workforce efficiently</p>
+                </div>
+                <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/employees/new')">
+                    <i class="bi bi-person-plus me-2"></i>Add Employee
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-medium text-muted">Search Employees</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" 
+                                       @bind="searchQuery" @oninput="OnSearchInput"
+                                       placeholder="Search by name or email...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Department</label>
+                            <select class="form-select" value="@selectedDepartment" @onchange="OnDepartmentFilterChange">
+                                <option value="">All Departments</option>
+                                @foreach (var dept in departments)
+                                {
+                                    <option value="@dept.Id">@dept.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Job Role</label>
+                            <select class="form-select" value="@selectedJobRole" @onchange="OnJobRoleFilterChange">
+                                <option value="">All Roles</option>
+                                @foreach (var role in jobRoles)
+                                {
+                                    <option value="@role.Id">@role.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">
+                                <i class="bi bi-x-circle me-1"></i>Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Employee Cards -->
+        <div class="row g-4">
+            @if (employees.Any())
+            {
+                @foreach (var employee in employees)
+                {
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-sm h-100 employee-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-3">
+                                    <div class="flex-shrink-0">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" 
+                                             style="width: 60px; height: 60px;">
+                                            <i class="bi bi-person text-primary fs-4"></i>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h5 class="card-title mb-1 fw-bold">@employee.Name</h5>
+                                        <p class="text-muted mb-1">@employee.Position</p>
+                                        <small class="text-muted">
+                                            <i class="bi bi-envelope me-1"></i>@employee.Email
+                                        </small>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="/employees/@employee.Employee_ID">
+                                                <i class="bi bi-eye me-2"></i>View Details</a></li>
+                                            <li><a class="dropdown-item" href="/employees/@employee.Employee_ID/edit">
+                                                <i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" @onclick="() => ConfirmDelete(employee.Employee_ID)">
+                                                <i class="bi bi-trash me-2"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Department</small>
+                                            <span class="fw-medium">Dept @employee.Department_ID</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Hire Date</small>
+                                            <span class="fw-medium">@employee.HireDate.ToString("MMM yyyy")</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button class="btn btn-primary btn-sm flex-fill" 
+                                            @onclick="() => Navigation.NavigateTo($'/employees/{employee.Employee_ID}')">
+                                        <i class="bi bi-eye me-1"></i>View Profile
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm flex-fill"
+                                            @onclick="() => Navigation.NavigateTo($'/employees/{employee.Employee_ID}/edit')">
+                                        <i class="bi bi-pencil me-1"></i>Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="bi bi-people text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No employees found</h4>
+                        <p class="text-muted">Try adjusting your search criteria or add new employees.</p>
+                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/employees/new')">
+                            <i class="bi bi-person-plus me-2"></i>Add First Employee
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        @if (totalPages > 1)
+        {
+            <div class="row mt-4">
+                <div class="col-12">
+                    <nav aria-label="Employee pagination">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+                            </li>
+                            
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                <li class="page-item @(i == currentPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+                            
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this employee? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" @onclick="DeleteEmployee">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .employee-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .employee-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .page-link {
+        border: none;
+        padding: 0.5rem 0.75rem;
+        margin: 0 0.125rem;
+        border-radius: 0.375rem;
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--bs-primary);
+        border-color: var(--bs-primary);
+    }
+</style>
+
+@code {
+    private List<EmployeeResponse> employees = new();
+    private List<Department> departments = new();
+    private List<JobRole> jobRoles = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string selectedDepartment = "";
+    private string selectedJobRole = "";
+    private int currentPage = 1;
+    private int pageSize = 12;
+    private int totalEmployees = 0;
+    private int totalPages = 0;
+    private int employeeToDelete = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDepartments();
+        await LoadJobRoles();
+        await LoadEmployees();
+        isLoading = false;
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            var url = $"/api/employees?page={currentPage}&pageSize={pageSize}";
+            
+            if (!string.IsNullOrEmpty(searchQuery))
+                url += $"&q={Uri.EscapeDataString(searchQuery)}";
+            
+            if (!string.IsNullOrEmpty(selectedDepartment))
+                url += $"&departmentId={selectedDepartment}";
+
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<EmployeeListResponse>();
+                employees = result?.Items ?? new List<EmployeeResponse>();
+                totalEmployees = result?.Total ?? 0;
+                totalPages = (int)Math.Ceiling((double)totalEmployees / pageSize);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading employees: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/departments");
+            if (response.IsSuccessStatusCode)
+            {
+                departments = await response.Content.ReadFromJsonAsync<List<Department>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading departments: {ex.Message}");
+        }
+    }
+
+    private async Task LoadJobRoles()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/jobroles");
+            if (response.IsSuccessStatusCode)
+            {
+                jobRoles = await response.Content.ReadFromJsonAsync<List<JobRole>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading job roles: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        currentPage = 1;
+        await LoadEmployees();
+    }
+
+    private async Task OnDepartmentFilterChange(ChangeEventArgs e)
+    {
+        selectedDepartment = e.Value?.ToString() ?? "";
+        currentPage = 1;
+        await LoadEmployees();
+    }
+
+    private async Task OnJobRoleFilterChange(ChangeEventArgs e)
+    {
+        selectedJobRole = e.Value?.ToString() ?? "";
+        currentPage = 1;
+        await LoadEmployees();
+    }
+
+    private async Task OnFilterChange()
+    {
+        currentPage = 1;
+        await LoadEmployees();
+    }
+
+    private async Task ClearFilters()
+    {
+        searchQuery = "";
+        selectedDepartment = "";
+        selectedJobRole = "";
+        currentPage = 1;
+        await LoadEmployees();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            await LoadEmployees();
+        }
+    }
+
+    private void ConfirmDelete(int employeeId)
+    {
+        employeeToDelete = employeeId;
+        // Show modal - this would need JavaScript interop in a real implementation
+    }
+
+    private async Task DeleteEmployee()
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/employees/{employeeToDelete}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadEmployees();
+                // Hide modal - this would need JavaScript interop in a real implementation
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting employee: {ex.Message}");
+        }
+    }
+
+    public class EmployeeResponse
+    {
+        public int Employee_ID { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Position { get; set; } = string.Empty;
+        public DateTime HireDate { get; set; }
+        public int Department_ID { get; set; }
+        public int? JobRole_ID { get; set; }
+    }
+
+    public class EmployeeListResponse
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<EmployeeResponse> Items { get; set; } = new();
+    }
+
+    public class Department
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class JobRole
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

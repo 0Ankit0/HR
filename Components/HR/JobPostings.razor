@@ -1,0 +1,445 @@
+@page "/job-postings"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-megaphone me-2"></i>Job Postings
+                    </h1>
+                    <p class="text-muted mb-0">Manage open positions and recruitment</p>
+                </div>
+                <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/job-postings/new"))">
+                            <i class="bi bi-plus-circle me-2"></i>Create Job Posting
+                        </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-briefcase fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-0">Active Postings</h6>
+                            <h3 class="mb-0 fw-bold">@jobPostings.Count(jp => jp.Status == "Active")</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-file-earmark-text fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-0">Total Applications</h6>
+                            <h3 class="mb-0 fw-bold">156</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clock fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-0">Pending Review</h6>
+                            <h3 class="mb-0 fw-bold">23</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-check fs-2"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-0">Interviews Scheduled</h6>
+                            <h3 class="mb-0 fw-bold">12</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-medium text-muted">Search Jobs</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" 
+                                       @bind="searchQuery" @oninput="OnSearchInput"
+                                       placeholder="Search by title or description...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Status</label>
+                            <select class="form-select" value="@selectedStatus" @onchange="OnStatusFilterChange">
+                                <option value="">All Status</option>
+                                <option value="Active">Active</option>
+                                <option value="Draft">Draft</option>
+                                <option value="Closed">Closed</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Department</label>
+                            <select class="form-select" value="@selectedDepartment" @onchange="OnDepartmentFilterChange">
+                                <option value="">All Departments</option>
+                                @foreach (var dept in departments)
+                                {
+                                    <option value="@dept.Id">@dept.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">
+                                <i class="bi bi-x-circle me-1"></i>Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Job Postings List -->
+        <div class="row g-4">
+            @if (jobPostings.Any())
+            {
+                @foreach (var job in jobPostings)
+                {
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100 job-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title mb-2 fw-bold">@job.Title</h5>
+                                        <div class="d-flex flex-wrap gap-2 mb-2">
+                                            <span class="badge bg-@GetStatusColor(job.Status) bg-opacity-10 text-@GetStatusColor(job.Status) border border-@GetStatusColor(job.Status)">
+                                                @job.Status
+                                            </span>
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                                <i class="bi bi-building me-1"></i>Dept @job.Department_ID
+                                            </span>
+                                            <span class="badge bg-info bg-opacity-10 text-info">
+                                                <i class="bi bi-geo-alt me-1"></i>@job.Location
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="/job-postings/@job.JobPosting_ID">
+                                                <i class="bi bi-eye me-2"></i>View Details</a></li>
+                                            <li><a class="dropdown-item" href="/job-postings/@job.JobPosting_ID/edit">
+                                                <i class="bi bi-pencil me-2"></i>Edit</a></li>
+                                            <li><a class="dropdown-item" href="/applications?jobId=@job.JobPosting_ID">
+                                                <i class="bi bi-file-earmark-text me-2"></i>View Applications</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" @onclick="() => ToggleStatus(job.JobPosting_ID, job.Status)">
+                                                <i class="bi bi-@(job.Status == "Active" ? "pause" : "play") me-2"></i>
+                                                @(job.Status == "Active" ? "Close" : "Activate") Posting
+                                            </a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <p class="text-muted mb-3" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                                    @job.Description
+                                </p>
+
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Posted Date</small>
+                                            <span class="fw-medium">@job.PostedDate.ToString("MMM dd, yyyy")</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="bg-light rounded p-2 text-center">
+                                            <small class="text-muted d-block">Applications</small>
+                                            <!-- TODO: Replace with actual API call to get application count -->
+                                            <span class="fw-medium">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button class="btn btn-primary btn-sm flex-fill" 
+                                            @onclick="@(() => Navigation.NavigateTo($"/applications?jobId={job.JobPosting_ID}"))">
+                                        <i class="bi bi-file-earmark-text me-1"></i>View Applications
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm flex-fill"
+                                            @onclick="@(() => Navigation.NavigateTo($"/job-postings/{job.JobPosting_ID}/edit"))">
+                                        <i class="bi bi-pencil me-1"></i>Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="bi bi-megaphone text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No job postings found</h4>
+                        <p class="text-muted">Create your first job posting to start recruiting.</p>
+                        <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/job-postings/new"))">
+                            <i class="bi bi-plus-circle me-2"></i>Create Job Posting
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Quick Actions Panel -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-lightning me-2"></i>Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="@(() => Navigation.NavigateTo("/job-postings/templates"))">
+                                    <i class="bi bi-file-earmark-code fs-4 mb-2"></i>
+                                    Job Templates
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="@(() => Navigation.NavigateTo("/applications"))">
+                                    <i class="bi bi-file-earmark-text fs-4 mb-2"></i>
+                                    All Applications
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="@(() => Navigation.NavigateTo("/interviews"))">
+                                    <i class="bi bi-calendar-check fs-4 mb-2"></i>
+                                    Schedule Interviews
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="@(() => Navigation.NavigateTo("/analytics?view=recruitment"))">
+                                    <i class="bi bi-graph-up fs-4 mb-2"></i>
+                                    Recruitment Analytics
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .job-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .job-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    private List<JobPostingResponse> jobPostings = new();
+    private List<Department> departments = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string selectedStatus = "";
+    private string selectedDepartment = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDepartments();
+        await LoadJobPostings();
+        isLoading = false;
+    }
+
+    private async Task LoadJobPostings()
+    {
+        try
+        {
+            var url = "/api/jobpostings";
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(searchQuery))
+                queryParams.Add($"q={Uri.EscapeDataString(searchQuery)}");
+            
+            if (!string.IsNullOrEmpty(selectedStatus))
+                queryParams.Add($"status={selectedStatus}");
+            
+            if (!string.IsNullOrEmpty(selectedDepartment))
+                queryParams.Add($"departmentId={selectedDepartment}");
+
+            if (queryParams.Any())
+                url += "?" + string.Join("&", queryParams);
+
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                jobPostings = await response.Content.ReadFromJsonAsync<List<JobPostingResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading job postings: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDepartments()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/departments");
+            if (response.IsSuccessStatusCode)
+            {
+                departments = await response.Content.ReadFromJsonAsync<List<Department>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading departments: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        await LoadJobPostings();
+    }
+
+    private async Task OnStatusFilterChange(ChangeEventArgs e)
+    {
+        selectedStatus = e.Value?.ToString() ?? "";
+        await LoadJobPostings();
+    }
+
+    private async Task OnDepartmentFilterChange(ChangeEventArgs e)
+    {
+        selectedDepartment = e.Value?.ToString() ?? "";
+        await LoadJobPostings();
+    }
+
+    private async Task OnFilterChange()
+    {
+        await LoadJobPostings();
+    }
+
+    private async Task ClearFilters()
+    {
+        searchQuery = "";
+        selectedStatus = "";
+        selectedDepartment = "";
+        await LoadJobPostings();
+    }
+
+    private async Task ToggleStatus(int jobId, string currentStatus)
+    {
+        try
+        {
+            var newStatus = currentStatus == "Active" ? "Closed" : "Active";
+            var response = await Http.PutAsJsonAsync($"/api/jobpostings/{jobId}/status", new { Status = newStatus });
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadJobPostings();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating job status: {ex.Message}");
+        }
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Active" => "success",
+            "Draft" => "warning",
+            "Closed" => "secondary",
+            _ => "primary"
+        };
+    }
+
+    public class JobPostingResponse
+    {
+        public int JobPosting_ID { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Requirements { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public DateTime PostedDate { get; set; }
+        public DateTime? ClosingDate { get; set; }
+        public int Department_ID { get; set; }
+    }
+
+    public class Department
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

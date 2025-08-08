@@ -1,0 +1,447 @@
+@page "/attendance"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-clock me-2"></i>Attendance Management
+                    </h1>
+                    <p class="text-muted mb-0">Track employee attendance and working hours</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" @onclick="RefreshData">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                    <button class="btn btn-primary" @onclick="MarkAttendance">
+                        <i class="bi bi-clock-fill me-1"></i>Mark Attendance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@presentToday</div>
+                            <div class="text-muted small">Present Today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-danger bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-x-circle text-danger fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@absentToday</div>
+                            <div class="text-muted small">Absent Today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@lateToday</div>
+                            <div class="text-muted small">Late Today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-graph-up text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@attendanceRate%</div>
+                            <div class="text-muted small">Attendance Rate</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-start-0" 
+                       placeholder="Search employees..." 
+                       @bind="searchQuery" @onkeyup="OnSearchChanged" />
+            </div>
+        </div>
+        <div class="col-md-2">
+            <input type="date" class="form-control" @bind="selectedDate" @bind:after="ApplyFilters" />
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" @bind="statusFilter" @bind:after="ApplyFilters">
+                <option value="">All Status</option>
+                <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
+                <option value="Late">Late</option>
+                <option value="Half Day">Half Day</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" @bind="departmentFilter" @bind:after="ApplyFilters">
+                <option value="">All Departments</option>
+                <option value="HR">HR</option>
+                <option value="IT">IT</option>
+                <option value="Finance">Finance</option>
+                <option value="Marketing">Marketing</option>
+            </select>
+        </div>
+        <div class="col-md-3 text-end">
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary" @onclick="ExportData">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+                <button class="btn btn-outline-info" @onclick="GenerateReport">
+                    <i class="bi bi-file-text me-1"></i>Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading attendance records...</div>
+                </div>
+            }
+            else if (attendanceRecords.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0 fw-semibold">Employee</th>
+                                <th class="border-0 fw-semibold">Department</th>
+                                <th class="border-0 fw-semibold">Date</th>
+                                <th class="border-0 fw-semibold">Check In</th>
+                                <th class="border-0 fw-semibold">Check Out</th>
+                                <th class="border-0 fw-semibold">Hours Worked</th>
+                                <th class="border-0 fw-semibold">Status</th>
+                                <th class="border-0 fw-semibold text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in pagedRecords)
+                            {
+                                <tr>
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                                <i class="bi bi-person text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">@record.EmployeeName</div>
+                                                <small class="text-muted">ID: @record.Employee_ID</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="align-middle">
+                                        <span class="badge bg-light text-dark">@record.Department</span>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div>@record.Date.ToString("MMM dd, yyyy")</div>
+                                        <small class="text-muted">@record.Date.ToString("dddd")</small>
+                                    </td>
+                                    <td class="align-middle">
+                                        @if (record.TimeIn.HasValue)
+                                        {
+                                            <div class="text-success">
+                                                <i class="bi bi-clock me-1"></i>@record.TimeIn.Value.ToString(@"h\:mm")</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle">
+                                        @if (record.TimeOut.HasValue)
+                                        {
+                                            <div class="text-info">
+                                                <i class="bi bi-clock me-1"></i>@record.TimeOut.Value.ToString(@"h\:mm")</div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle">
+                                        @if (record.HoursWorked.HasValue)
+                                        {
+                                            <span class="badge bg-info">@record.HoursWorked.Value.ToString("0.0")h</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="align-middle">
+                                        <span class="badge @GetStatusBadgeClass(record.Status)">
+                                            @record.Status
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" @onclick="() => ViewDetails(record.Attendance_ID)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary" @onclick="() => EditRecord(record)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">
+                            Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredRecords.Count) of @filteredRecords.Count results
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                </li>
+                                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == totalPages)">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-clock text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">No attendance records found</h5>
+                    <p class="text-muted">Attendance records will appear here once employees start marking their attendance.</p>
+                    <button class="btn btn-primary" @onclick="MarkAttendance">
+                        <i class="bi bi-clock-fill me-2"></i>Mark Attendance
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AttendanceResponseWithEmployee> attendanceRecords = new();
+    private List<AttendanceResponseWithEmployee> filteredRecords = new();
+    private List<AttendanceResponseWithEmployee> pagedRecords = new();
+    private string searchQuery = string.Empty;
+    private string statusFilter = string.Empty;
+    private string departmentFilter = string.Empty;
+    private DateTime selectedDate = DateTime.Today;
+    private bool isLoading = true;
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages => (int)Math.Ceiling((double)filteredRecords.Count / pageSize);
+    
+    // Stats
+    private int presentToday => attendanceRecords.Count(r => r.Date.Date == DateTime.Today && r.Status == "Present");
+    private int absentToday => attendanceRecords.Count(r => r.Date.Date == DateTime.Today && r.Status == "Absent");
+    private int lateToday => attendanceRecords.Count(r => r.Date.Date == DateTime.Today && r.Status == "Late");
+    private int attendanceRate => attendanceRecords.Any() ? (int)((double)attendanceRecords.Count(r => r.Status == "Present") / attendanceRecords.Count * 100) : 0;
+
+    public class ApiResponse
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<AttendanceResponseWithEmployee> Items { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAttendanceRecords();
+    }
+
+    private async Task LoadAttendanceRecords()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await Http.GetAsync("/api/attendance");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ApiResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                
+                if (result?.Items != null)
+                {
+                    attendanceRecords = result.Items;
+                }
+                else
+                {
+                    attendanceRecords = new List<AttendanceResponseWithEmployee>();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"API Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                attendanceRecords = new List<AttendanceResponseWithEmployee>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading attendance records: {ex.Message}");
+            attendanceRecords = new List<AttendanceResponseWithEmployee>();
+        }
+        finally
+        {
+            isLoading = false;
+            ApplyFilters();
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredRecords = attendanceRecords.Where(r => 
+            (string.IsNullOrEmpty(searchQuery) || 
+             r.EmployeeName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(statusFilter) || r.Status == statusFilter) &&
+            (string.IsNullOrEmpty(departmentFilter) || r.Department == departmentFilter) &&
+            r.Date.Date == selectedDate.Date
+        ).ToList();
+        
+        currentPage = 1;
+        UpdatePagedResults();
+    }
+
+    private void UpdatePagedResults()
+    {
+        pagedRecords = filteredRecords
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged()
+    {
+        await Task.Delay(300); // Debounce
+        ApplyFilters();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedResults();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Present" => "bg-success",
+        "Absent" => "bg-danger",
+        "Late" => "bg-warning",
+        "Half Day" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private void ViewDetails(int attendanceId)
+    {
+        Console.WriteLine($"Viewing attendance details {attendanceId}");
+    }
+
+    private void EditRecord(AttendanceResponseWithEmployee record)
+    {
+        Console.WriteLine($"Editing attendance record {record.Attendance_ID}");
+    }
+
+    private void MarkAttendance()
+    {
+        Console.WriteLine("Mark attendance functionality");
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadAttendanceRecords();
+    }
+
+    private async Task ExportData()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Export functionality would be implemented here");
+    }
+
+    private async Task GenerateReport()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Report generation functionality would be implemented here");
+    }
+}

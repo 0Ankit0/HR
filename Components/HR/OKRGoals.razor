@@ -1,0 +1,655 @@
+@page "/hr/okr-goals"
+@using global::HR.Models
+@using global::HR.Data
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">OKR Goals Management</h3>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="fas fa-target"></i> Create OKR Goal
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Stats Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                                <i class="fas fa-target text-primary fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="fw-bold fs-4">@totalGoals</div>
+                                            <div class="text-muted small">Total Goals</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                                <i class="fas fa-check-circle text-success fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="fw-bold fs-4">@completedGoals</div>
+                                            <div class="text-muted small">Completed</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                                <i class="fas fa-clock text-warning fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="fw-bold fs-4">@inProgressGoals</div>
+                                            <div class="text-muted small">In Progress</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                                <i class="fas fa-percentage text-info fs-4"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <div class="fw-bold fs-4">@completionRate.ToString("F1")%</div>
+                                            <div class="text-muted small">Completion Rate</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search and Filter Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search goals..." @bind="searchTerm"
+                                    @oninput="FilterGoals" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedEmployeeFilter" @bind:after="FilterGoals">
+                                <option value="">All Employees</option>
+                                @foreach (var employee in employees)
+                                {
+                                    <option value="@employee.Employee_ID">@employee.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" @bind="selectedStatusFilter" @bind:after="FilterGoals">
+                                <option value="">All Status</option>
+                                <option value="Not Started">Not Started</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear
+                                Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Goals Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Objective</th>
+                                    <th>Employee</th>
+                                    <th>Key Results</th>
+                                    <th>Period</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredGoals.Any())
+                                {
+                                    @foreach (var goal in pagedGoals)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@goal.Objective</strong>
+                                            </td>
+                                            <td>@GetEmployeeName(goal.Employee_ID)</td>
+                                            <td>
+                                                @if (goal.KeyResults.Length > 100)
+                                                {
+                                                    <text>@goal.KeyResults.Substring(0, 100)...</text>
+                                                }
+                                                else
+                                                {
+                                                    @goal.KeyResults
+                                                }
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    @goal.StartDate.ToString("MMM dd") - @goal.EndDate.ToString("MMM dd, yyyy")
+                                                </small>
+                                            </td>
+                                            <td>
+                                                @if (goal.IsCompleted)
+                                                {
+                                                    <span class="badge bg-success">Completed</span>
+                                                }
+                                                else if (goal.StartDate > DateTime.Now)
+                                                {
+                                                    <span class="badge bg-secondary">Not Started</span>
+                                                }
+                                                else if (goal.EndDate < DateTime.Now)
+                                                {
+                                                    <span class="badge bg-danger">Overdue</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning">In Progress</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-info"
+                                                        @onclick="() => ViewGoal(goal)">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick="() => EditGoal(goal)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    @if (!goal.IsCompleted)
+                                                    {
+                                                        <button type="button" class="btn btn-sm btn-outline-success"
+                                                            @onclick="() => MarkAsCompleted(goal)">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    }
+                                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                                        @onclick="() => DeleteGoal(goal)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted">No goals found</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    @if (totalPages > 1)
+                    {
+                        <nav aria-label="Goals pagination">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                                </li>
+                                @for (int i = 1; i <= totalPages; i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1"
+    style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(isEditMode ? "Edit OKR Goal" : "Create New OKR Goal")</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="currentGoal" OnValidSubmit="SaveGoal">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div class="mb-3">
+                        <label for="employeeId" class="form-label">Employee</label>
+                        <InputSelect id="employeeId" class="form-select" @bind-Value="currentGoal.Employee_ID">
+                            <option value="0">Select Employee</option>
+                            @foreach (var employee in employees)
+                            {
+                                <option value="@employee.Employee_ID">@employee.Name</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => currentGoal.Employee_ID)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="objective" class="form-label">Objective</label>
+                        <InputText id="objective" class="form-control" @bind-Value="currentGoal.Objective"
+                            placeholder="Enter the main objective" />
+                        <ValidationMessage For="@(() => currentGoal.Objective)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="keyResults" class="form-label">Key Results</label>
+                        <InputTextArea id="keyResults" class="form-control" rows="4"
+                            @bind-Value="currentGoal.KeyResults" placeholder="Enter measurable key results..." />
+                        <ValidationMessage For="@(() => currentGoal.KeyResults)" />
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="startDate" class="form-label">Start Date</label>
+                                <InputDate id="startDate" class="form-control" @bind-Value="currentGoal.StartDate" />
+                                <ValidationMessage For="@(() => currentGoal.StartDate)" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="endDate" class="form-label">End Date</label>
+                                <InputDate id="endDate" class="form-control" @bind-Value="currentGoal.EndDate" />
+                                <ValidationMessage For="@(() => currentGoal.EndDate)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditMode ? "Update" : "Create") Goal</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Goal Modal -->
+<div class="modal fade @(showViewModal ? "show d-block" : "")" tabindex="-1"
+    style="@(showViewModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Goal Details</h5>
+                <button type="button" class="btn-close" @onclick="CloseViewModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedGoal != null)
+                {
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Employee:</strong> @GetEmployeeName(selectedGoal.Employee_ID)
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            @if (selectedGoal.IsCompleted)
+                            {
+                                <span class="badge bg-success">Completed</span>
+                            }
+                            else if (selectedGoal.StartDate > DateTime.Now)
+                            {
+                                <span class="badge bg-secondary">Not Started</span>
+                            }
+                            else if (selectedGoal.EndDate < DateTime.Now)
+                            {
+                                <span class="badge bg-danger">Overdue</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">In Progress</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Start Date:</strong> @selectedGoal.StartDate.ToString("MMMM dd, yyyy")
+                        </div>
+                        <div class="col-md-6">
+                            <strong>End Date:</strong> @selectedGoal.EndDate.ToString("MMMM dd, yyyy")
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Objective:</strong>
+                        <div class="mt-2 p-3 bg-light rounded">
+                            @selectedGoal.Objective
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Key Results:</strong>
+                        <div class="mt-2 p-3 bg-light rounded">
+                            @selectedGoal.KeyResults
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<OKRGoalResponse> goals = new();
+    private List<OKRGoalResponse> filteredGoals = new();
+    private List<OKRGoalResponse> pagedGoals = new();
+    private List<global::HR.Models.Employee> employees = new();
+
+    private string searchTerm = "";
+    private string selectedEmployeeFilter = "";
+    private string selectedStatusFilter = "";
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+
+    // Stats
+    private int totalGoals = 0;
+    private int completedGoals = 0;
+    private int inProgressGoals = 0;
+    private double completionRate = 0;
+
+    private bool showModal = false;
+    private bool showViewModal = false;
+    private bool isEditMode = false;
+
+    private OKRGoalRequest currentGoal = new();
+    private OKRGoalResponse? selectedGoal;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEmployees();
+        await LoadGoals();
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/employees");
+            if (response.IsSuccessStatusCode)
+            {
+                employees = await response.Content.ReadFromJsonAsync<List<Employee>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading employees:", ex.Message);
+        }
+    }
+
+    private async Task LoadGoals()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/goals");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<OKRGoalListResponse>();
+                goals = result?.Items ?? new List<OKRGoalResponse>();
+                CalculateStats();
+                FilterGoals();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading goals:", ex.Message);
+        }
+    }
+
+    private void CalculateStats()
+    {
+        totalGoals = goals.Count;
+        completedGoals = goals.Count(g => g.IsCompleted);
+        inProgressGoals = goals.Count(g => !g.IsCompleted && g.StartDate <= DateTime.Now && g.EndDate >= DateTime.Now);
+        completionRate = totalGoals > 0 ? (double)completedGoals / totalGoals * 100 : 0;
+    }
+
+    private void FilterGoals()
+    {
+        var query = goals.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(searchTerm))
+        {
+            query = query.Where(g =>
+            g.Objective.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            g.KeyResults.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrEmpty(selectedEmployeeFilter) && int.TryParse(selectedEmployeeFilter, out var empId))
+        {
+            query = query.Where(g => g.Employee_ID == empId);
+        }
+
+        if (!string.IsNullOrEmpty(selectedStatusFilter))
+        {
+            query = selectedStatusFilter switch
+            {
+                "Completed" => query.Where(g => g.IsCompleted),
+                "Not Started" => query.Where(g => !g.IsCompleted && g.StartDate > DateTime.Now),
+                "In Progress" => query.Where(g => !g.IsCompleted && g.StartDate <= DateTime.Now && g.EndDate >= DateTime.Now),
+                _ => query
+            };
+        }
+
+        filteredGoals = query.OrderByDescending(g => g.StartDate).ToList();
+        UpdatePagedData();
+    }
+
+    private void UpdatePagedData()
+    {
+        totalPages = (int)Math.Ceiling((double)filteredGoals.Count / pageSize);
+        currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
+
+        pagedGoals = filteredGoals
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedData();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        selectedEmployeeFilter = "";
+        selectedStatusFilter = "";
+        currentPage = 1;
+        FilterGoals();
+    }
+
+    private void ShowCreateModal()
+    {
+        currentGoal = new OKRGoalRequest
+        {
+            StartDate = DateTime.Now,
+            EndDate = DateTime.Now.AddMonths(3)
+        };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void EditGoal(OKRGoalResponse goal)
+    {
+        currentGoal = new OKRGoalRequest
+        {
+            Employee_ID = goal.Employee_ID,
+            Objective = goal.Objective,
+            KeyResults = goal.KeyResults,
+            StartDate = goal.StartDate,
+            EndDate = goal.EndDate
+        };
+        selectedGoal = goal;
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void ViewGoal(OKRGoalResponse goal)
+    {
+        selectedGoal = goal;
+        showViewModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentGoal = new();
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        selectedGoal = null;
+    }
+
+    private async Task SaveGoal()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(currentGoal);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response;
+            if (isEditMode && selectedGoal != null)
+            {
+                response = await Http.PutAsync($"/api/goals/{selectedGoal.OKRGoal_ID}", content);
+            }
+            else
+            {
+                response = await Http.PostAsync("/api/goals", content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadGoals();
+                CloseModal();
+                await JSRuntime.InvokeVoidAsync("alert", $"Goal {(isEditMode ? "updated" : "created")} successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error saving goal. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error saving goal:", ex.Message);
+            await JSRuntime.InvokeVoidAsync("alert", "Error saving goal. Please try again.");
+        }
+    }
+
+    private async Task MarkAsCompleted(OKRGoalResponse goal)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Mark goal '{goal.Objective}' as completed?"))
+        {
+            try
+            {
+                var response = await Http.PatchAsync($"/api/goals/{goal.OKRGoal_ID}/complete", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadGoals();
+                    await JSRuntime.InvokeVoidAsync("alert", "Goal marked as completed!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error updating goal. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Error updating goal:", ex.Message);
+                await JSRuntime.InvokeVoidAsync("alert", "Error updating goal. Please try again.");
+            }
+        }
+    }
+
+    private async Task DeleteGoal(OKRGoalResponse goal)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the goal '{goal.Objective}'?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/goals/{goal.OKRGoal_ID}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadGoals();
+                    await JSRuntime.InvokeVoidAsync("alert", "Goal deleted successfully!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting goal. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Error deleting goal:", ex.Message);
+                await JSRuntime.InvokeVoidAsync("alert", "Error deleting goal. Please try again.");
+            }
+        }
+    }
+
+    private string GetEmployeeName(int employeeId)
+    {
+        var employee = employees.FirstOrDefault(e => e.Employee_ID == employeeId);
+        return employee?.Name ?? "Unknown";
+    }
+
+    public class OKRGoalListResponse
+    {
+        public List<OKRGoalResponse> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                

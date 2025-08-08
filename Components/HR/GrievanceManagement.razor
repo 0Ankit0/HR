@@ -1,0 +1,573 @@
+@page "/grievances"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Grievance Management
+                    </h1>
+                    <p class="text-muted mb-0">Manage employee grievances and complaints</p>
+                </div>
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-circle me-2"></i>Report Grievance
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-danger bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-exclamation-triangle text-danger fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalGrievances</div>
+                            <div class="text-muted small">Total Grievances</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@pendingGrievances</div>
+                            <div class="text-muted small">Pending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-arrow-repeat text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@inProgressGrievances</div>
+                            <div class="text-muted small">In Progress</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@resolvedGrievances</div>
+                            <div class="text-muted small">Resolved</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <select class="form-select" value="@selectedStatus" onchange="@(async (ChangeEventArgs e) => { selectedStatus = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                <option value="">All Statuses</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Under Review">Under Review</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" value="@selectedSeverity" onchange="@(async (ChangeEventArgs e) => { selectedSeverity = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                <option value="">All Severity Levels</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" value="@selectedCategory" onchange="@(async (ChangeEventArgs e) => { selectedCategory = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                <option value="">All Categories</option>
+                <option value="Workplace Harassment">Workplace Harassment</option>
+                <option value="Discrimination">Discrimination</option>
+                <option value="Unfair Treatment">Unfair Treatment</option>
+                <option value="Safety Concerns">Safety Concerns</option>
+                <option value="Policy Violation">Policy Violation</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-start-0" 
+                       placeholder="Search grievances..." 
+                       @bind="searchQuery" @onkeyup="OnSearchChanged" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Grievances Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading grievances...</div>
+                </div>
+            }
+            else if (grievances.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0 fw-semibold">ID</th>
+                                <th class="border-0 fw-semibold">Employee</th>
+                                <th class="border-0 fw-semibold">Category</th>
+                                <th class="border-0 fw-semibold">Severity</th>
+                                <th class="border-0 fw-semibold">Status</th>
+                                <th class="border-0 fw-semibold">Submitted</th>
+                                <th class="border-0 fw-semibold text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grievance in pagedGrievances)
+                            {
+                                <tr>
+                                    <td class="fw-semibold text-primary">#@grievance.Grievance_ID</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-3">
+                                                <i class="bi bi-person text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">@grievance.EmployeeName</div>
+                                                <div class="text-muted small">ID: @grievance.Employee_ID</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
+                                            @grievance.Category
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetSeverityBadgeClass(grievance.Severity) px-3 py-2">
+                                            @grievance.Severity
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(grievance.Status) px-3 py-2">
+                                            @grievance.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div>@grievance.DateSubmitted?.ToString("MMM dd, yyyy")</div>
+                                        <div class="text-muted small">@grievance.DateSubmitted?.ToString("hh:mm tt")</div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" @onclick="() => ViewGrievance(grievance)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" @onclick="() => EditGrievance(grievance)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" @onclick="() => UpdateStatus(grievance)">
+                                                <i class="bi bi-arrow-up-circle"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <div class="text-muted">
+                        Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, totalItems) of @totalItems grievances
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                            </li>
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                <li class="page-item @(currentPage == i ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="bi bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                        <h5>No grievances found</h5>
+                        <p>No grievances match your current filters.</p>
+                        <button class="btn btn-primary" @onclick="OpenCreateModal">
+                            <i class="bi bi-plus-circle me-2"></i>Report First Grievance
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    @(isEditMode ? "Update Grievance" : "Report New Grievance")
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @onsubmit="SaveGrievance" @onsubmit:preventDefault="true">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Employee</label>
+                                <select class="form-select" @bind="currentGrievance.Employee_ID" required>
+                                    <option value="">Select Employee</option>
+                                    @foreach (var employee in employees)
+                                    {
+                                        <option value="@employee.Employee_ID">@employee.FirstName @employee.LastName</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" @bind="currentGrievance.Category" required>
+                                    <option value="">Select Category</option>
+                                    <option value="Workplace Harassment">Workplace Harassment</option>
+                                    <option value="Discrimination">Discrimination</option>
+                                    <option value="Unfair Treatment">Unfair Treatment</option>
+                                    <option value="Safety Concerns">Safety Concerns</option>
+                                    <option value="Policy Violation">Policy Violation</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Severity Level</label>
+                                <select class="form-select" @bind="currentGrievance.Severity" required>
+                                    <option value="">Select Severity</option>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" @bind="currentGrievance.Status">
+                                    <option value="Submitted">Submitted</option>
+                                    <option value="Under Review">Under Review</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Title</label>
+                        <input type="text" class="form-control" @bind="currentGrievance.Title" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="4" @bind="currentGrievance.Description" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Resolution (if applicable)</label>
+                        <textarea class="form-control" rows="3" @bind="currentGrievance.Resolution"></textarea>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary me-2" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            @(isEditMode ? "Update" : "Submit") Grievance
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<GrievanceResponse> grievances = new();
+    private List<GrievanceResponse> pagedGrievances = new();
+    private List<Employee> employees = new();
+    private bool isLoading = true;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private string searchQuery = "";
+    private string selectedStatus = "";
+    private string selectedSeverity = "";
+    private string selectedCategory = "";
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int totalItems = 0;
+    
+    // Stats
+    private int totalGrievances = 0;
+    private int pendingGrievances = 0;
+    private int inProgressGrievances = 0;
+    private int resolvedGrievances = 0;
+    
+    private GrievanceRequest currentGrievance = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadEmployees();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var query = $"/api/grievances?page={currentPage}&pageSize={pageSize}";
+            if (!string.IsNullOrEmpty(searchQuery))
+                query += $"&q={Uri.EscapeDataString(searchQuery)}";
+            if (!string.IsNullOrEmpty(selectedStatus))
+                query += $"&status={Uri.EscapeDataString(selectedStatus)}";
+
+            var response = await Http.GetFromJsonAsync<GrievanceListResponse>(query);
+            grievances = response?.Items ?? new();
+            totalItems = response?.Total ?? 0;
+            totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+            
+            UpdatePagedData();
+            CalculateStats();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading grievances: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            employees = await Http.GetFromJsonAsync<List<Employee>>("/api/employees") ?? new();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading employees: {ex.Message}");
+        }
+    }
+
+    private void UpdatePagedData()
+    {
+        var filteredGrievances = grievances.AsQueryable();
+        
+        if (!string.IsNullOrEmpty(selectedSeverity))
+            filteredGrievances = filteredGrievances.Where(g => g.Severity == selectedSeverity);
+        if (!string.IsNullOrEmpty(selectedCategory))
+            filteredGrievances = filteredGrievances.Where(g => g.Category == selectedCategory);
+            
+        pagedGrievances = filteredGrievances.ToList();
+    }
+
+    private void CalculateStats()
+    {
+        totalGrievances = grievances.Count;
+        pendingGrievances = grievances.Count(g => g.Status == "Submitted" || g.Status == "Under Review");
+        inProgressGrievances = grievances.Count(g => g.Status == "In Progress");
+        resolvedGrievances = grievances.Count(g => g.Status == "Resolved" || g.Status == "Closed");
+    }
+
+    private async Task OnSearchChanged()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnFilterChanged()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            await LoadData();
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentGrievance = new GrievanceRequest { Status = "Submitted", DateSubmitted = DateTime.Now };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void EditGrievance(GrievanceResponse grievance)
+    {
+        currentGrievance = new GrievanceRequest
+        {
+            Grievance_ID = grievance.Grievance_ID,
+            Employee_ID = grievance.Employee_ID,
+            Title = grievance.Title,
+            Description = grievance.Description,
+            Category = grievance.Category,
+            Severity = grievance.Severity,
+            Status = grievance.Status,
+            Resolution = grievance.Resolution,
+            DateSubmitted = grievance.DateSubmitted
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentGrievance = new();
+    }
+
+    private async Task SaveGrievance()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                await Http.PutAsJsonAsync($"/api/grievances/{currentGrievance.Grievance_ID}", currentGrievance);
+                await JSRuntime.InvokeVoidAsync("alert", "Grievance updated successfully!");
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("/api/grievances", currentGrievance);
+                await JSRuntime.InvokeVoidAsync("alert", "Grievance submitted successfully!");
+            }
+            
+            CloseModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving grievance: {ex.Message}");
+        }
+    }
+
+    private async Task ViewGrievance(GrievanceResponse grievance)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"Grievance Details:\n\nTitle: {grievance.Title}\nCategory: {grievance.Category}\nSeverity: {grievance.Severity}\nStatus: {grievance.Status}\nDescription: {grievance.Description}");
+    }
+
+    private async Task UpdateStatus(GrievanceResponse grievance)
+    {
+        var newStatus = await JSRuntime.InvokeAsync<string>("prompt", "Enter new status:", grievance.Status);
+        if (!string.IsNullOrEmpty(newStatus))
+        {
+            try
+            {
+                var updateRequest = new { status = newStatus };
+                await Http.PutAsJsonAsync($"/api/grievances/{grievance.Grievance_ID}/status", updateRequest);
+                await JSRuntime.InvokeVoidAsync("alert", "Status updated successfully!");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error updating status: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Submitted" => "bg-info bg-opacity-10 text-info",
+            "Under Review" => "bg-warning bg-opacity-10 text-warning",
+            "In Progress" => "bg-primary bg-opacity-10 text-primary",
+            "Resolved" => "bg-success bg-opacity-10 text-success",
+            "Closed" => "bg-secondary bg-opacity-10 text-secondary",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private string GetSeverityBadgeClass(string severity)
+    {
+        return severity switch
+        {
+            "Low" => "bg-success bg-opacity-10 text-success",
+            "Medium" => "bg-warning bg-opacity-10 text-warning",
+            "High" => "bg-danger bg-opacity-10 text-danger",
+            "Critical" => "bg-danger text-white",
+            _ => "bg-light text-dark"
+        };
+    }
+}

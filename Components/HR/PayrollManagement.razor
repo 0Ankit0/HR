@@ -1,0 +1,601 @@
+@page "/payroll"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-cash-stack me-2"></i>Payroll Management
+                    </h1>
+                    <p class="text-muted mb-0">Manage employee payroll and compensation</p>
+                </div>
+                <div>
+                    <button class="btn btn-success me-2" @onclick="ProcessPayroll">
+                        <i class="bi bi-play-circle me-2"></i>Process Payroll
+                    </button>
+                    <button class="btn btn-primary" @onclick="OpenCreateModal">
+                        <i class="bi bi-plus-circle me-2"></i>Add Payroll Record
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-cash-stack text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalPayrollRecords</div>
+                            <div class="text-muted small">Total Records</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-currency-dollar text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalGrossPay.ToString("C")</div>
+                            <div class="text-muted small">Total Gross Pay</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-receipt text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalDeductions.ToString("C")</div>
+                            <div class="text-muted small">Total Deductions</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-bank text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalNetPay.ToString("C")</div>
+                            <div class="text-muted small">Total Net Pay</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <select class="form-select" @bind="selectedEmployee">
+                <option value="">All Employees</option>
+                @foreach (var employee in employees)
+                {
+                    <option value="@employee.Employee_ID">@employee.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" @bind="selectedPayPeriod">
+                <option value="">All Pay Periods</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Bi-Weekly">Bi-Weekly</option>
+                <option value="Monthly">Monthly</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <input type="month" class="form-control" @bind="selectedMonth" />
+        </div>
+        <div class="col-md-3">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-start-0" 
+                       placeholder="Search payroll..." 
+                       @bind="searchQuery" @onkeyup="OnSearchChanged" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Payroll Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading payroll records...</div>
+                </div>
+            }
+            else if (payrollRecords.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0 fw-semibold">Employee</th>
+                                <th class="border-0 fw-semibold">Pay Period</th>
+                                <th class="border-0 fw-semibold">Hours</th>
+                                <th class="border-0 fw-semibold">Gross Pay</th>
+                                <th class="border-0 fw-semibold">Deductions</th>
+                                <th class="border-0 fw-semibold">Net Pay</th>
+                                <th class="border-0 fw-semibold">Status</th>
+                                <th class="border-0 fw-semibold text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var payroll in pagedPayrollRecords)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-3">
+                                                <i class="bi bi-person text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">@payroll.EmployeeName</div>
+                                                <div class="text-muted small">ID: @payroll.Employee_ID</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>@payroll.PayPeriodStart?.ToString("MMM dd") - @payroll.PayPeriodEnd?.ToString("MMM dd, yyyy")</div>
+                                        <div class="text-muted small">@payroll.PayFrequency</div>
+                                    </td>
+                                    <td>@payroll.HoursWorked</td>
+                                    <td>@payroll.GrossPay.ToString("C")</td>
+                                    <td>@payroll.Deductions.ToString("C")</td>
+                                    <td class="fw-semibold">@payroll.NetPay.ToString("C")</td>
+                                    <td>
+                                        <span class="badge @(payroll.Status == "Processed" ? "bg-success" : payroll.Status == "Pending" ? "bg-warning" : "bg-secondary")">
+                                            @payroll.Status
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" @onclick="() => ViewPayStub(payroll)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" @onclick="() => EditPayroll(payroll)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" @onclick="() => DeletePayroll(payroll)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <div class="text-muted">
+                        Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, totalItems) of @totalItems records
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                            </li>
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                <li class="page-item @(currentPage == i ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <div class="text-muted">
+                        <i class="bi bi-cash-stack fs-1 d-block mb-3"></i>
+                        <h5>No payroll records found</h5>
+                        <p>No payroll records match your current filters.</p>
+                        <button class="btn btn-primary" @onclick="OpenCreateModal">
+                            <i class="bi bi-plus-circle me-2"></i>Add First Payroll Record
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-cash-stack me-2"></i>
+                    @(isEditMode ? "Edit Payroll Record" : "Add New Payroll Record")
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="currentPayroll" OnValidSubmit="SavePayroll">
+                    <DataAnnotationsValidator />
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Employee</label>
+                                <select class="form-select" @bind="currentPayroll.Employee_ID" required>
+                                    <option value="">Select Employee</option>
+                                    @foreach (var employee in employees)
+                                    {
+                                        <option value="@employee.Employee_ID">@employee.FirstName @employee.LastName</option>
+                                    }
+                                </select>
+                                <ValidationMessage For="@(() => currentPayroll.Employee_ID)" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Pay Frequency</label>
+                                <select class="form-select" @bind="currentPayroll.PayFrequency" required>
+                                    <option value="">Select Frequency</option>
+                                    <option value="Weekly">Weekly</option>
+                                    <option value="Bi-Weekly">Bi-Weekly</option>
+                                    <option value="Monthly">Monthly</option>
+                                </select>
+                                <ValidationMessage For="@(() => currentPayroll.PayFrequency)" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Pay Period Start</label>
+                                <InputDate class="form-control" @bind-Value="currentPayroll.PayPeriodStart" required />
+                                <ValidationMessage For="@(() => currentPayroll.PayPeriodStart)" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Pay Period End</label>
+                                <InputDate class="form-control" @bind-Value="currentPayroll.PayPeriodEnd" required />
+                                <ValidationMessage For="@(() => currentPayroll.PayPeriodEnd)" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Hours Worked</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.HoursWorked" step="0.5" required />
+                                <ValidationMessage For="@(() => currentPayroll.HoursWorked)" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Hourly Rate</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.HourlyRate" step="0.01" required />
+                                <ValidationMessage For="@(() => currentPayroll.HourlyRate)" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Overtime Hours</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.OvertimeHours" step="0.5" />
+                                <ValidationMessage For="@(() => currentPayroll.OvertimeHours)" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Gross Pay</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.GrossPay" step="0.01" required />
+                                <ValidationMessage For="@(() => currentPayroll.GrossPay)" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Deductions</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.Deductions" step="0.01" />
+                                <ValidationMessage For="@(() => currentPayroll.Deductions)" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Net Pay</label>
+                                <InputNumber class="form-control" @bind-Value="currentPayroll.NetPay" step="0.01" required />
+                                <ValidationMessage For="@(() => currentPayroll.NetPay)" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary me-2" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            @(isEditMode ? "Update" : "Create") Payroll Record
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<PayrollResponse> payrollRecords = new();
+    private List<PayrollResponse> pagedPayrollRecords = new();
+    private List<EmployeeResponse> employees = new();
+    private bool isLoading = true;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private string searchQuery = "";
+    private string selectedEmployee = "";
+    private string selectedPayPeriod = "";
+    private string selectedMonth = "";
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int totalItems = 0;
+    
+    // Stats
+    private int totalPayrollRecords = 0;
+    private decimal totalGrossPay = 0;
+    private decimal totalDeductions = 0;
+    private decimal totalNetPay = 0;
+    
+    private PayrollRequest currentPayroll = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadEmployees();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var query = $"/api/payrolls?page={currentPage}&pageSize={pageSize}";
+            if (!string.IsNullOrEmpty(searchQuery))
+                query += $"&q={Uri.EscapeDataString(searchQuery)}";
+            if (!string.IsNullOrEmpty(selectedEmployee))
+                query += $"&employeeId={selectedEmployee}";
+
+            var response = await Http.GetFromJsonAsync<PayrollListResponse>(query);
+            payrollRecords = response?.Items ?? new();
+            totalItems = response?.Total ?? 0;
+            totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+            
+            UpdatePagedData();
+            CalculateStats();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading payroll records: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadEmployees()
+    {
+        try
+        {
+            employees = await Http.GetFromJsonAsync<List<Employee>>("/api/employees") ?? new();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading employees: {ex.Message}");
+        }
+    }
+
+    private void UpdatePagedData()
+    {
+        var filteredRecords = payrollRecords.AsQueryable();
+        
+        if (!string.IsNullOrEmpty(selectedPayPeriod))
+            filteredRecords = filteredRecords.Where(p => p.PayFrequency == selectedPayPeriod);
+            
+        pagedPayrollRecords = filteredRecords.ToList();
+    }
+
+    private void CalculateStats()
+    {
+        totalPayrollRecords = payrollRecords.Count;
+        totalGrossPay = payrollRecords.Sum(p => p.GrossPay);
+        totalDeductions = payrollRecords.Sum(p => p.Deductions);
+        totalNetPay = payrollRecords.Sum(p => p.NetPay);
+    }
+
+    private async Task OnSearchChanged()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            await LoadData();
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentPayroll = new Payroll();
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void EditPayroll(PayrollResponse payroll)
+    {
+        currentPayroll = new Payroll
+        {
+            Payroll_ID = payroll.Payroll_ID,
+            Employee_ID = payroll.Employee_ID,
+            PayPeriodStart = payroll.PayPeriodStart,
+            PayPeriodEnd = payroll.PayPeriodEnd,
+            HoursWorked = payroll.HoursWorked,
+            HourlyRate = payroll.HourlyRate,
+            OvertimeHours = payroll.OvertimeHours,
+            GrossPay = payroll.GrossPay,
+            Deductions = payroll.Deductions,
+            NetPay = payroll.NetPay,
+            PayFrequency = payroll.PayFrequency
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentPayroll = new();
+    }
+
+    private async Task SavePayroll()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                await Http.PutAsJsonAsync($"/api/payrolls/{currentPayroll.Payroll_ID}", currentPayroll);
+                await JSRuntime.InvokeVoidAsync("alert", "Payroll record updated successfully!");
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("/api/payrolls", currentPayroll);
+                await JSRuntime.InvokeVoidAsync("alert", "Payroll record created successfully!");
+            }
+            
+            CloseModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving payroll record: {ex.Message}");
+        }
+    }
+
+    private async Task DeletePayroll(PayrollResponse payroll)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete this payroll record for {payroll.EmployeeName}?"))
+        {
+            try
+            {
+                await Http.DeleteAsync($"/api/payrolls/{payroll.Payroll_ID}");
+                await JSRuntime.InvokeVoidAsync("alert", "Payroll record deleted successfully!");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error deleting payroll record: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ProcessPayroll()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to process payroll? This action cannot be undone."))
+        {
+            try
+            {
+                await Http.PostAsJsonAsync("/api/payrolls/process", new { });
+                await JSRuntime.InvokeVoidAsync("alert", "Payroll processed successfully!");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error processing payroll: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ViewPayStub(PayrollResponse payroll)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("open", $"/api/payrolls/{payroll.Payroll_ID}/paystub", "_blank");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error viewing pay stub: {ex.Message}");
+        }
+    }
+
+    public class PayrollResponse
+    {
+        public int Payroll_ID { get; set; }
+        public int Employee_ID { get; set; }
+        public string EmployeeName { get; set; } = "";
+        public DateTime? PayPeriodStart { get; set; }
+        public DateTime? PayPeriodEnd { get; set; }
+        public decimal HoursWorked { get; set; }
+        public decimal HourlyRate { get; set; }
+        public decimal OvertimeHours { get; set; }
+        public decimal GrossPay { get; set; }
+        public decimal Deductions { get; set; }
+        public decimal NetPay { get; set; }
+        public string PayFrequency { get; set; } = "";
+        public string Status { get; set; } = "Pending";
+    }
+
+    public class PayrollListResponse
+    {
+        public List<PayrollResponse> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}

@@ -1,0 +1,497 @@
+@page "/applications"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>Job Applications
+                    </h1>
+                    <p class="text-muted mb-0">Review and manage candidate applications</p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" @onclick="RefreshData">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                    </button>
+                    <button class="btn btn-primary" @onclick="ViewJobPostings">
+                        <i class="bi bi-briefcase me-1"></i>View Job Postings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-file-earmark-text text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalApplications</div>
+                            <div class="text-muted small">Total Applications</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-clock text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@pendingApplications</div>
+                            <div class="text-muted small">Pending Review</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@approvedApplications</div>
+                            <div class="text-muted small">Approved</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-calendar-check text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@interviewScheduled</div>
+                            <div class="text-muted small">Interview Scheduled</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-start-0" 
+                       placeholder="Search applications..." 
+                       @bind="searchQuery" @onkeyup="OnSearchChanged" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" value="@statusFilter" @onchange="OnStatusFilterChanged">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Interview Scheduled">Interview Scheduled</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" value="@jobPostingFilter" @onchange="OnJobPostingFilterChanged">
+                <option value="">All Job Postings</option>
+                @foreach (var posting in uniqueJobPostings)
+                {
+                    <option value="@posting">Job ID: @posting</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2 text-end">
+            <button class="btn btn-outline-secondary" @onclick="ExportData">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Applications Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            @if (isLoading)
+            {
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading applications...</div>
+                </div>
+            }
+            else if (applications.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="border-0 fw-semibold">Candidate</th>
+                                <th class="border-0 fw-semibold">Job Posting</th>
+                                <th class="border-0 fw-semibold">Applied Date</th>
+                                <th class="border-0 fw-semibold">Status</th>
+                                <th class="border-0 fw-semibold text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var application in pagedApplications)
+                            {
+                                <tr>
+                                    <td class="align-middle">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 p-2 rounded me-3">
+                                                <i class="bi bi-person text-primary"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">@application.CandidateName</div>
+                                                <small class="text-muted">@application.CandidateEmail</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="align-middle">
+                                        <span class="badge bg-light text-dark">
+                                            <i class="bi bi-briefcase me-1"></i>Job ID: @application.JobPosting_ID
+                                        </span>
+                                    </td>
+                                    <td class="align-middle">
+                                        <div>@application.AppliedDate.ToString("MMM dd, yyyy")</div>
+                                        <small class="text-muted">@application.AppliedDate.ToString("h:mm tt")</small>
+                                    </td>
+                                    <td class="align-middle">
+                                        <span class="badge @GetStatusBadgeClass(application.Status)">
+                                            @application.Status
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" @onclick="() => ViewApplication(application.Application_ID)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" @onclick="() => ScheduleInterview(application.Application_ID)">
+                                                <i class="bi bi-calendar-plus"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" @onclick="() => UpdateStatus(application)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">
+                            Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, filteredApplications.Count) of @filteredApplications.Count results
+                        </div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)" disabled="@(currentPage == 1)">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                </li>
+                                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)" disabled="@(currentPage == totalPages)">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark-text text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">No applications found</h5>
+                    <p class="text-muted">Applications will appear here once candidates start applying to job postings.</p>
+                    <button class="btn btn-primary" @onclick="ViewJobPostings">
+                        <i class="bi bi-briefcase me-2"></i>View Job Postings
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Status Update Modal -->
+<div class="modal fade @(showStatusModal ? "show d-block" : "")" tabindex="-1" style="@(showStatusModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil me-2"></i>Update Application Status
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseStatusModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedApplication != null)
+                {
+                    <div class="mb-3">
+                        <strong>Candidate:</strong> @selectedApplication.CandidateName
+                    </div>
+                    <div class="mb-3">
+                        <strong>Email:</strong> @selectedApplication.CandidateEmail
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" @bind="newStatus">
+                            <option value="Pending">Pending</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Interview Scheduled">Interview Scheduled</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseStatusModal">Cancel</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveStatusUpdate" disabled="@isSaving">
+                    @if (isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-check-circle me-2"></i>Update Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ApplicationResponse> applications = new();
+    private List<ApplicationResponse> filteredApplications = new();
+    private List<ApplicationResponse> pagedApplications = new();
+    private string searchQuery = string.Empty;
+    private string statusFilter = string.Empty;
+    private string jobPostingFilter = string.Empty;
+    private bool isLoading = true;
+    private bool showStatusModal = false;
+    private bool isSaving = false;
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages => (int)Math.Ceiling((double)filteredApplications.Count / pageSize);
+    
+    // Stats
+    private int totalApplications => applications.Count;
+    private int pendingApplications => applications.Count(a => a.Status == "Pending");
+    private int approvedApplications => applications.Count(a => a.Status == "Approved");
+    private int interviewScheduled => applications.Count(a => a.Status == "Interview Scheduled");
+    
+    private List<int> uniqueJobPostings => applications.Select(a => a.JobPosting_ID).Distinct().ToList();
+    
+    private ApplicationResponse? selectedApplication;
+    private string newStatus = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadApplications();
+    }
+
+    private async Task LoadApplications()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await Http.GetFromJsonAsync<ApiResponse<ApplicationResponse>>($"/api/applications?page=1&pageSize=100");
+            applications = response?.Items ?? new List<ApplicationResponse>();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading applications: {ex.Message}");
+            applications = new List<ApplicationResponse>();
+            ApplyFilters();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredApplications = applications.Where(a => 
+            (string.IsNullOrEmpty(searchQuery) || 
+             a.CandidateName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+             a.CandidateEmail.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(statusFilter) || a.Status == statusFilter) &&
+            (string.IsNullOrEmpty(jobPostingFilter) || a.JobPosting_ID.ToString() == jobPostingFilter)
+        ).ToList();
+        
+        currentPage = 1;
+        UpdatePagedResults();
+    }
+
+    private void UpdatePagedResults()
+    {
+        pagedApplications = filteredApplications
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged()
+    {
+        await Task.Delay(300); // Debounce
+        ApplyFilters();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedResults();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Pending" => "bg-warning",
+        "Under Review" => "bg-info",
+        "Interview Scheduled" => "bg-primary",
+        "Approved" => "bg-success",
+        "Rejected" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private void ViewApplication(int applicationId)
+    {
+        // Navigate to application details
+        Console.WriteLine($"Viewing application {applicationId}");
+    }
+
+    private void ScheduleInterview(int applicationId)
+    {
+        // Navigate to interview scheduling
+        Console.WriteLine($"Scheduling interview for application {applicationId}");
+    }
+
+    private void UpdateStatus(ApplicationResponse application)
+    {
+        selectedApplication = application;
+        newStatus = application.Status;
+        showStatusModal = true;
+    }
+
+    private void CloseStatusModal()
+    {
+        showStatusModal = false;
+        selectedApplication = null;
+    }
+
+    private async Task SaveStatusUpdate()
+    {
+        if (selectedApplication == null) return;
+        
+        isSaving = true;
+        try
+        {
+            var statusUpdate = new { Status = newStatus };
+            var response = await Http.PatchAsJsonAsync($"/api/applications/{selectedApplication.Application_ID}/status", statusUpdate);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var application = applications.FirstOrDefault(a => a.Application_ID == selectedApplication.Application_ID);
+                if (application != null)
+                {
+                    application.Status = newStatus;
+                }
+                
+                ApplyFilters();
+                CloseStatusModal();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating status: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void ViewJobPostings()
+    {
+        // Navigate to job postings page
+        Console.WriteLine("Navigating to job postings");
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadApplications();
+    }
+
+    private async Task ExportData()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Export functionality would be implemented here");
+    }
+
+    private void OnStatusFilterChanged(ChangeEventArgs e)
+    {
+        statusFilter = e.Value?.ToString() ?? string.Empty;
+        ApplyFilters();
+    }
+
+    private void OnJobPostingFilterChanged(ChangeEventArgs e)
+    {
+        jobPostingFilter = e.Value?.ToString() ?? string.Empty;
+        ApplyFilters();
+    }
+
+    public class ApiResponse<T>
+    {
+        public List<T> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}

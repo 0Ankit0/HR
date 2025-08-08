@@ -1,0 +1,644 @@
+@page "/analytics"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-graph-up me-2"></i>HR Analytics
+                    </h1>
+                    <p class="text-muted mb-0">Comprehensive insights into your workforce</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary active" @onclick='() => SetTimeFrame("month")'>This Month</button>
+                    <button class="btn btn-outline-primary" @onclick='() => SetTimeFrame("quarter")'>This Quarter</button>
+                    <button class="btn btn-outline-primary" @onclick='() => SetTimeFrame("year")'>This Year</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Key Metrics Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-3 col-md-6">
+                <div class="card border-0 shadow-sm analytics-card bg-gradient" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="card-body text-white">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-people fs-1"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title mb-1 opacity-75">Total Employees</h6>
+                                <h2 class="mb-0 fw-bold">@(employeeSummary?.TotalEmployees ?? 0)</h2>
+                                <small class="opacity-75">+12% from last month</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="card border-0 shadow-sm analytics-card bg-gradient" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="card-body text-white">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-person-plus fs-1"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title mb-1 opacity-75">New Hires</h6>
+                                <h2 class="mb-0 fw-bold">@(turnoverData?.Hires ?? 0)</h2>
+                                <small class="opacity-75">This year</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="card border-0 shadow-sm analytics-card bg-gradient" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <div class="card-body text-white">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-clock fs-1"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title mb-1 opacity-75">Avg. Attendance</h6>
+                                <h2 class="mb-0 fw-bold">94.5%</h2>
+                                <small class="opacity-75">+2.1% improvement</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-6">
+                <div class="card border-0 shadow-sm analytics-card bg-gradient" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                    <div class="card-body text-white">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <i class="bi bi-star fs-1"></i>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="card-title mb-1 opacity-75">Avg. Performance</h6>
+                                <h2 class="mb-0 fw-bold">4.2/5.0</h2>
+                                <small class="opacity-75">Across all reviews</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-graph-up me-2"></i>Headcount Trend
+                            </h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary active">Monthly</button>
+                                <button class="btn btn-outline-primary">Quarterly</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (headcountTrend != null && headcountTrend.Any())
+                        {
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="headcountChart"></canvas>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-5">
+                                <i class="bi bi-graph-up" style="font-size: 3rem;"></i>
+                                <p class="mt-2">Chart data will appear here</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-pie-chart me-2"></i>Department Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (employeeSummary?.ByDepartment != null && employeeSummary.ByDepartment.Any())
+                        {
+                            @foreach (var dept in employeeSummary.ByDepartment.Take(6))
+                            {
+                                var percentage = Math.Round((double)dept.Count / employeeSummary.TotalEmployees * 100, 1);
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-medium">Department @dept.Department_ID</span>
+                                        <span class="text-muted">@dept.Count (@percentage%)</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-primary" style="width: @percentage%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-pie-chart" style="font-size: 2rem;"></i>
+                                <p class="mt-2 small">No data available</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance & Training Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-star me-2"></i>Performance Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (performanceDistribution != null && performanceDistribution.Any())
+                        {
+                            @foreach (var perf in performanceDistribution.OrderByDescending(p => p.Score))
+                            {
+                                var maxCount = performanceDistribution.Max(p => p.Count);
+                                var percentage = Math.Round((double)perf.Count / maxCount * 100, 1);
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="fw-medium">
+                                            @for (int i = 0; i < perf.Score; i++)
+                                            {
+                                                <i class="bi bi-star-fill text-warning"></i>
+                                            }
+                                            @for (int i = perf.Score; i < 5; i++)
+                                            {
+                                                <i class="bi bi-star text-muted"></i>
+                                            }
+                                        </span>
+                                        <span class="text-muted">@perf.Count employees</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar bg-warning" style="width: @percentage%"></div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-star" style="font-size: 2rem;"></i>
+                                <p class="mt-2 small">No performance data</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-book me-2"></i>Training Participation
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (trainingParticipation != null && trainingParticipation.Any())
+                        {
+                            @foreach (var training in trainingParticipation.Take(5))
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <span class="fw-medium">Training @training.Training_ID</span>
+                                        <br>
+                                        <small class="text-muted">@training.ParticipantCount participants</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-success bg-opacity-10 text-success border border-success">
+                                            @training.ParticipantCount
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-book" style="font-size: 2rem;"></i>
+                                <p class="mt-2 small">No training data</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compensation & Absenteeism Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-cash-stack me-2"></i>Compensation by Department
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (compensationData != null && compensationData.Any())
+                        {
+                            @foreach (var comp in compensationData.OrderByDescending(c => c.AvgSalary))
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <span class="fw-medium">Department @comp.Department_ID</span>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="fw-bold text-success">$@comp.AvgSalary.ToString("N0")</span>
+                                        <br>
+                                        <small class="text-muted">avg. salary</small>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-cash-stack" style="font-size: 2rem;"></i>
+                                <p class="mt-2 small">No compensation data</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-calendar-x me-2"></i>Absenteeism Analysis
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (absenteeismData != null && absenteeismData.Any())
+                        {
+                            @foreach (var absence in absenteeismData.OrderByDescending(a => a.AbsenceCount).Take(5))
+                            {
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <span class="fw-medium">Employee @absence.Employee_ID</span>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-@(absence.AbsenceCount > 5 ? "danger" : absence.AbsenceCount > 2 ? "warning" : "success") bg-opacity-10 text-@(absence.AbsenceCount > 5 ? "danger" : absence.AbsenceCount > 2 ? "warning" : "success") border border-@(absence.AbsenceCount > 5 ? "danger" : absence.AbsenceCount > 2 ? "warning" : "success")">
+                                            @absence.AbsenceCount days
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
+                                <p class="mt-2 small">No absence data</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export and Actions -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-download me-2"></i>Export & Reports
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100" @onclick="ExportEmployeeReport">
+                                    <i class="bi bi-file-earmark-excel me-2"></i>Employee Report
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100" @onclick="ExportAttendanceReport">
+                                    <i class="bi bi-file-earmark-pdf me-2"></i>Attendance Report
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100" @onclick="ExportPerformanceReport">
+                                    <i class="bi bi-file-earmark-bar-graph me-2"></i>Performance Report
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100" @onclick="ExportCustomReport">
+                                    <i class="bi bi-gear me-2"></i>Custom Report
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .analytics-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .analytics-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .chart-container {
+        position: relative;
+    }
+
+    .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+</style>
+
+@code {
+    private bool isLoading = true;
+    private string currentTimeFrame = "month";
+    
+    // Analytics data models
+    private EmployeeSummaryResponse? employeeSummary;
+    private TurnoverResponse? turnoverData;
+    private List<HeadcountTrendResponse>? headcountTrend;
+    private List<PerformanceDistributionResponse>? performanceDistribution;
+    private List<TrainingParticipationResponse>? trainingParticipation;
+    private List<CompensationResponse>? compensationData;
+    private List<AbsenteeismResponse>? absenteeismData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAnalyticsData();
+        isLoading = false;
+    }
+
+    private async Task LoadAnalyticsData()
+    {
+        try
+        {
+            // Load all analytics data in parallel
+            var tasks = new[]
+            {
+                LoadEmployeeSummary(),
+                LoadTurnoverData(),
+                LoadHeadcountTrend(),
+                LoadPerformanceDistribution(),
+                LoadTrainingParticipation(),
+                LoadCompensationData(),
+                LoadAbsenteeismData()
+            };
+
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading analytics data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadEmployeeSummary()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/employee-summary");
+            if (response.IsSuccessStatusCode)
+            {
+                employeeSummary = await response.Content.ReadFromJsonAsync<EmployeeSummaryResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading employee summary: {ex.Message}");
+        }
+    }
+
+    private async Task LoadTurnoverData()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/turnover");
+            if (response.IsSuccessStatusCode)
+            {
+                turnoverData = await response.Content.ReadFromJsonAsync<TurnoverResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading turnover data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadHeadcountTrend()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/headcount-trend");
+            if (response.IsSuccessStatusCode)
+            {
+                headcountTrend = await response.Content.ReadFromJsonAsync<List<HeadcountTrendResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading headcount trend: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPerformanceDistribution()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/performance-distribution");
+            if (response.IsSuccessStatusCode)
+            {
+                performanceDistribution = await response.Content.ReadFromJsonAsync<List<PerformanceDistributionResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading performance distribution: {ex.Message}");
+        }
+    }
+
+    private async Task LoadTrainingParticipation()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/training-participation");
+            if (response.IsSuccessStatusCode)
+            {
+                trainingParticipation = await response.Content.ReadFromJsonAsync<List<TrainingParticipationResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading training participation: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCompensationData()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/compensation-by-department");
+            if (response.IsSuccessStatusCode)
+            {
+                compensationData = await response.Content.ReadFromJsonAsync<List<CompensationResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading compensation data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAbsenteeismData()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/analytics/absenteeism");
+            if (response.IsSuccessStatusCode)
+            {
+                absenteeismData = await response.Content.ReadFromJsonAsync<List<AbsenteeismResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading absenteeism data: {ex.Message}");
+        }
+    }
+
+    private async Task SetTimeFrame(string timeFrame)
+    {
+        currentTimeFrame = timeFrame;
+        isLoading = true;
+        await LoadAnalyticsData();
+        isLoading = false;
+    }
+
+    private Task ExportEmployeeReport()
+    {
+        // Implementation for employee report export
+        Console.WriteLine("Exporting employee report...");
+        return Task.CompletedTask;
+    }
+
+    private Task ExportAttendanceReport()
+    {
+        // Implementation for attendance report export
+        Console.WriteLine("Exporting attendance report...");
+        return Task.CompletedTask;
+    }
+
+    private Task ExportPerformanceReport()
+    {
+        // Implementation for performance report export
+        Console.WriteLine("Exporting performance report...");
+        return Task.CompletedTask;
+    }
+
+    private Task ExportCustomReport()
+    {
+        // Implementation for custom report export
+        Console.WriteLine("Exporting custom report...");
+        return Task.CompletedTask;
+    }
+
+    // Data models
+    public class EmployeeSummaryResponse
+    {
+        public int TotalEmployees { get; set; }
+        public List<DepartmentCount> ByDepartment { get; set; } = new();
+        public List<RoleCount> ByRole { get; set; } = new();
+    }
+
+    public class DepartmentCount
+    {
+        public int Department_ID { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class RoleCount
+    {
+        public int JobRole_ID { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class TurnoverResponse
+    {
+        public int Year { get; set; }
+        public int Hires { get; set; }
+        public int Separations { get; set; }
+    }
+
+    public class HeadcountTrendResponse
+    {
+        public int Month { get; set; }
+        public int Hires { get; set; }
+    }
+
+    public class PerformanceDistributionResponse
+    {
+        public int Score { get; set; }
+        public int Count { get; set; }
+    }
+
+    public class TrainingParticipationResponse
+    {
+        public int Training_ID { get; set; }
+        public int ParticipantCount { get; set; }
+    }
+
+    public class CompensationResponse
+    {
+        public int Department_ID { get; set; }
+        public double AvgSalary { get; set; }
+    }
+
+    public class AbsenteeismResponse
+    {
+        public int Employee_ID { get; set; }
+        public int AbsenceCount { get; set; }
+    }
+}

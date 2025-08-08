@@ -1,0 +1,380 @@
+@page "/hr/announcement-management"
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Announcement Management</h3>
+                    <button class="btn btn-primary" @onclick="ShowCreateModal">
+                        <i class="fas fa-bullhorn"></i> Create Announcement
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Search and Filter Section -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" placeholder="Search announcements..." @bind="searchTerm" @oninput="FilterAnnouncements" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" @bind="selectedStartDate" @bind:after="FilterAnnouncements" placeholder="Start Date" />
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" @bind="selectedEndDate" @bind:after="FilterAnnouncements" placeholder="End Date" />
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
+                        </div>
+                    </div>
+
+                    <!-- Announcements Table -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Content Preview</th>
+                                    <th>Date Posted</th>
+                                    <th>Created By</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (filteredAnnouncements.Any())
+                                {
+                                    @foreach (var announcement in pagedAnnouncements)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@announcement.Title</strong>
+                                            </td>
+                                            <td>
+                                                @if (announcement.Content.Length > 100)
+                                                {
+                                                    <text>@announcement.Content.Substring(0, 100)...</text>
+                                                }
+                                                else
+                                                {
+                                                    @announcement.Content
+                                                }
+                                            </td>
+                                            <td>@announcement.DatePosted.ToString("MMM dd, yyyy")</td>
+                                            <td>@announcement.CreatedBy</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-sm btn-outline-info" @onclick="() => ViewAnnouncement(announcement)">
+                                                        <i class="fas fa-eye"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => EditAnnouncement(announcement)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAnnouncement(announcement)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">No announcements found</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    @if (totalPages > 1)
+                    {
+                        <nav aria-label="Announcements pagination">
+                            <ul class="pagination justify-content-center">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                                </li>
+                                @for (int i = 1; i <= totalPages; i++)
+                                {
+                                    <li class="page-item @(i == currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(isEditMode ? "Edit Announcement" : "Create New Announcement")</h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @onsubmit="SaveAnnouncement" @onsubmit:preventDefault="true">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input id="title" class="form-control" @bind="currentAnnouncement.Title" placeholder="Enter announcement title" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="content" class="form-label">Content</label>
+                        <textarea id="content" class="form-control" rows="6" @bind="currentAnnouncement.Content" placeholder="Enter announcement content"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="datePosted" class="form-label">Date Posted</label>
+                        <input id="datePosted" type="date" class="form-control" @bind="currentAnnouncement.DatePosted" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditMode ? "Update" : "Create") Announcement</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade @(showViewModal ? "show d-block" : "")" tabindex="-1" style="@(showViewModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@selectedAnnouncement?.Title</h5>
+                <button type="button" class="btn-close" @onclick="CloseViewModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (selectedAnnouncement != null)
+                {
+                    <div class="mb-3">
+                        <strong>Date Posted:</strong> @selectedAnnouncement.DatePosted.ToString("MMMM dd, yyyy")
+                    </div>
+                    <div class="mb-3">
+                        <strong>Created By:</strong> @selectedAnnouncement.CreatedBy
+                    </div>
+                    <div class="mb-3">
+                        <strong>Content:</strong>
+                        <div class="mt-2 p-3 bg-light rounded">
+                            @selectedAnnouncement.Content
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseViewModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AnnouncementResponse> announcements = new();
+    private List<AnnouncementResponse> filteredAnnouncements = new();
+    private List<AnnouncementResponse> pagedAnnouncements = new();
+    
+    private string searchTerm = "";
+    private DateTime? selectedStartDate;
+    private DateTime? selectedEndDate;
+    
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+    
+    private bool showModal = false;
+    private bool showViewModal = false;
+    private bool isEditMode = false;
+    
+    private AnnouncementRequest currentAnnouncement = new();
+    private AnnouncementResponse? selectedAnnouncement;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAnnouncements();
+    }
+
+    private async Task LoadAnnouncements()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/announcements");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<AnnouncementListResponse>();
+                announcements = result?.Items ?? new List<AnnouncementResponse>();
+                FilterAnnouncements();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error loading announcements:", ex.Message);
+        }
+    }
+
+    private void FilterAnnouncements()
+    {
+        filteredAnnouncements = announcements.Where(a =>
+            (string.IsNullOrEmpty(searchTerm) || 
+             a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             a.Content.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) &&
+            (!selectedStartDate.HasValue || a.DatePosted >= selectedStartDate.Value) &&
+            (!selectedEndDate.HasValue || a.DatePosted <= selectedEndDate.Value)
+        ).OrderByDescending(a => a.DatePosted).ToList();
+        
+        UpdatePagedData();
+    }
+
+    private void UpdatePagedData()
+    {
+        totalPages = (int)Math.Ceiling((double)filteredAnnouncements.Count / pageSize);
+        currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
+        
+        pagedAnnouncements = filteredAnnouncements
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedData();
+        }
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = "";
+        selectedStartDate = null;
+        selectedEndDate = null;
+        currentPage = 1;
+        FilterAnnouncements();
+    }
+
+    private void ShowCreateModal()
+    {
+        currentAnnouncement = new AnnouncementRequest { DatePosted = DateTime.Now };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void EditAnnouncement(AnnouncementResponse announcement)
+    {
+        currentAnnouncement = new AnnouncementRequest
+        {
+            Title = announcement.Title,
+            Content = announcement.Content,
+            DatePosted = announcement.DatePosted
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void ViewAnnouncement(AnnouncementResponse announcement)
+    {
+        selectedAnnouncement = announcement;
+        showViewModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentAnnouncement = new();
+    }
+
+    private void CloseViewModal()
+    {
+        showViewModal = false;
+        selectedAnnouncement = null;
+    }
+
+    private async Task SaveAnnouncement()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(currentAnnouncement);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            HttpResponseMessage response;
+            if (isEditMode && selectedAnnouncement != null)
+            {
+                response = await Http.PutAsync($"/api/announcements/{selectedAnnouncement.Announcement_ID}", content);
+            }
+            else
+            {
+                response = await Http.PostAsync("/api/announcements", content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadAnnouncements();
+                CloseModal();
+                await JSRuntime.InvokeVoidAsync("alert", $"Announcement {(isEditMode ? "updated" : "created")} successfully!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Error saving announcement. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", "Error saving announcement:", ex.Message);
+            await JSRuntime.InvokeVoidAsync("alert", "Error saving announcement. Please try again.");
+        }
+    }
+
+    private async Task DeleteAnnouncement(AnnouncementResponse announcement)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the announcement '{announcement.Title}'?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/announcements/{announcement.Announcement_ID}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadAnnouncements();
+                    await JSRuntime.InvokeVoidAsync("alert", "Announcement deleted successfully!");
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting announcement. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", "Error deleting announcement:", ex.Message);
+                await JSRuntime.InvokeVoidAsync("alert", "Error deleting announcement. Please try again.");
+            }
+        }
+    }
+
+    public class AnnouncementListResponse
+    {
+        public List<AnnouncementResponse> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}

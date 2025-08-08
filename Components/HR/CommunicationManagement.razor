@@ -1,0 +1,613 @@
+@page "/communication"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+@using Microsoft.JSInterop
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-megaphone me-2"></i>Communication & Announcements
+                    </h1>
+                    <p class="text-muted mb-0">Manage company announcements and internal messaging</p>
+                </div>
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <i class="bi bi-plus-circle me-2"></i>Create Announcement
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "announcements" ? "active" : "")" @onclick="() => SwitchTab(\"announcements\")">
+                <i class="bi bi-megaphone me-2"></i>Announcements
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(activeTab == "messages" ? "active" : "")" @onclick="() => SwitchTab(\"messages\")">
+                <i class="bi bi-chat-dots me-2"></i>Messages
+            </button>
+        </li>
+    </ul>
+
+    @if (activeTab == "announcements")
+    {
+        <!-- Announcements Tab -->
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                    <i class="bi bi-megaphone text-primary fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-bold fs-4">@totalAnnouncements</div>
+                                <div class="text-muted small">Total Announcements</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="bg-success bg-opacity-10 p-3 rounded">
+                                    <i class="bi bi-broadcast text-success fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-bold fs-4">@activeAnnouncements</div>
+                                <div class="text-muted small">Active</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="bg-info bg-opacity-10 p-3 rounded">
+                                    <i class="bi bi-eye text-info fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-bold fs-4">@totalViews</div>
+                                <div class="text-muted small">Total Views</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                    <i class="bi bi-clock text-warning fs-4"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <div class="fw-bold fs-4">@recentAnnouncements</div>
+                                <div class="text-muted small">This Week</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Search -->
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <select class="form-select" value="@selectedPriority" onchange="@(async (ChangeEventArgs e) => { selectedPriority = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                    <option value="">All Priorities</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" value="@selectedCategory" onchange="@(async (ChangeEventArgs e) => { selectedCategory = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                    <option value="">All Categories</option>
+                    <option value="General">General</option>
+                    <option value="HR">HR</option>
+                    <option value="IT">IT</option>
+                    <option value="Safety">Safety</option>
+                    <option value="Policy">Policy</option>
+                    <option value="Event">Event</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" value="@selectedStatus" onchange="@(async (ChangeEventArgs e) => { selectedStatus = e.Value?.ToString() ?? ""; await OnFilterChanged(); })">
+                    <option value="">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="Expired">Expired</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" 
+                           placeholder="Search announcements..." 
+                           @bind="searchQuery" @onkeyup="OnSearchChanged" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Announcements List -->
+        <div class="row">
+            @if (isLoading)
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="mt-2 text-muted">Loading announcements...</div>
+                    </div>
+                </div>
+            }
+            else if (announcements.Any())
+            {
+                @foreach (var announcement in pagedAnnouncements)
+                {
+                    <div class="col-12 mb-3">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 rounded-circle p-2 me-3">
+                                            <i class="bi bi-megaphone text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="card-title mb-1">@announcement.Title</h5>
+                                            <div class="d-flex align-items-center text-muted small">
+                                                <span class="me-3">
+                                                    <i class="bi bi-person me-1"></i>@announcement.AuthorName
+                                                </span>
+                                                <span class="me-3">
+                                                    <i class="bi bi-calendar me-1"></i>@announcement.DateCreated?.ToString("MMM dd, yyyy")
+                                                </span>
+                                                <span class="me-3">
+                                                    <i class="bi bi-eye me-1"></i>@announcement.ViewCount views
+                                                </span>
+                                                <span class="badge @GetPriorityBadgeClass(announcement.Priority) px-2 py-1">
+                                                    @announcement.Priority
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><button class="dropdown-item" @onclick="() => EditAnnouncement(announcement)">
+                                                <i class="bi bi-pencil me-2"></i>Edit
+                                            </button></li>
+                                            <li><button class="dropdown-item" @onclick="() => ViewStats(announcement)">
+                                                <i class="bi bi-bar-chart me-2"></i>View Stats
+                                            </button></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><button class="dropdown-item text-danger" @onclick="() => DeleteAnnouncement(announcement)">
+                                                <i class="bi bi-trash me-2"></i>Delete
+                                            </button></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <p class="card-text">@announcement.Content</p>
+                                @if (!string.IsNullOrEmpty(announcement.Category))
+                                {
+                                    <span class="badge bg-info bg-opacity-10 text-info me-2">@announcement.Category</span>
+                                }
+                                <span class="badge @GetStatusBadgeClass(announcement.Status)">@announcement.Status</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Pagination -->
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted">
+                            Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize, totalItems) of @totalItems announcements
+                        </div>
+                        <nav>
+                            <ul class="pagination mb-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Previous</button>
+                                </li>
+                                @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                                {
+                                    <li class="page-item @(currentPage == i ? "active" : "")">
+                                        <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Next</button>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="bi bi-megaphone fs-1 d-block mb-3"></i>
+                            <h5>No announcements found</h5>
+                            <p>No announcements match your current filters.</p>
+                            <button class="btn btn-primary" @onclick="OpenCreateModal">
+                                <i class="bi bi-plus-circle me-2"></i>Create First Announcement
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (activeTab == "messages")
+    {
+        <!-- Messages Tab -->
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Internal messaging system - Feature coming soon! This will allow employees to send direct messages to each other.
+        </div>
+    }
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade @(showModal ? "show d-block" : "")" tabindex="-1" style="@(showModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-megaphone me-2"></i>
+                    @(isEditMode ? "Edit Announcement" : "Create New Announcement")
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @onsubmit="SaveAnnouncement" @onsubmit:preventDefault="true">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">Title</label>
+                                <input type="text" class="form-control" @bind="currentAnnouncement.Title" required />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Priority</label>
+                                <select class="form-select" @bind="currentAnnouncement.Priority" required>
+                                    <option value="">Select Priority</option>
+                                    <option value="Low">Low</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Urgent">Urgent</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" @bind="currentAnnouncement.Category">
+                                    <option value="">Select Category</option>
+                                    <option value="General">General</option>
+                                    <option value="HR">HR</option>
+                                    <option value="IT">IT</option>
+                                    <option value="Safety">Safety</option>
+                                    <option value="Policy">Policy</option>
+                                    <option value="Event">Event</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" @bind="currentAnnouncement.Status">
+                                    <option value="Draft">Draft</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Scheduled">Scheduled</option>
+                                    <option value="Expired">Expired</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Publish Date</label>
+                                <input type="datetime-local" class="form-control" @bind="currentAnnouncement.PublishDate" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Expiry Date</label>
+                                <input type="datetime-local" class="form-control" @bind="currentAnnouncement.ExpiryDate" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Content</label>
+                        <textarea class="form-control" rows="6" @bind="currentAnnouncement.Content" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" @bind="currentAnnouncement.IsPinned" />
+                            <label class="form-check-label">Pin to top</label>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary me-2" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-2"></i>
+                            @(isEditMode ? "Update" : "Create") Announcement
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string activeTab = "announcements";
+    private List<AnnouncementResponse> announcements = new();
+    private List<AnnouncementResponse> pagedAnnouncements = new();
+    private bool isLoading = true;
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private string searchQuery = "";
+    private string selectedPriority = "";
+    private string selectedCategory = "";
+    private string selectedStatus = "";
+    
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int totalItems = 0;
+    
+    // Stats
+    private int totalAnnouncements = 0;
+    private int activeAnnouncements = 0;
+    private int totalViews = 0;
+    private int recentAnnouncements = 0;
+    
+    private AnnouncementRequest currentAnnouncement = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (activeTab != "announcements") return;
+        
+        isLoading = true;
+        try
+        {
+            var query = $"/api/announcements?page={currentPage}&pageSize={pageSize}";
+            if (!string.IsNullOrEmpty(searchQuery))
+                query += $"&q={Uri.EscapeDataString(searchQuery)}";
+            if (!string.IsNullOrEmpty(selectedPriority))
+                query += $"&priority={Uri.EscapeDataString(selectedPriority)}";
+            if (!string.IsNullOrEmpty(selectedCategory))
+                query += $"&category={Uri.EscapeDataString(selectedCategory)}";
+            if (!string.IsNullOrEmpty(selectedStatus))
+                query += $"&status={Uri.EscapeDataString(selectedStatus)}";
+
+            var response = await Http.GetFromJsonAsync<AnnouncementListResponse>(query);
+            announcements = response?.Items ?? new();
+            totalItems = response?.Total ?? 0;
+            totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+            
+            UpdatePagedData();
+            CalculateStats();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading announcements: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void UpdatePagedData()
+    {
+        pagedAnnouncements = announcements.ToList();
+    }
+
+    private void CalculateStats()
+    {
+        totalAnnouncements = announcements.Count;
+        activeAnnouncements = announcements.Count(a => a.Status == "Active");
+        totalViews = announcements.Sum(a => a.ViewCount);
+        recentAnnouncements = announcements.Count(a => a.DateCreated >= DateTime.Now.AddDays(-7));
+    }
+
+    private async Task SwitchTab(string tab)
+    {
+        activeTab = tab;
+        if (tab == "announcements")
+        {
+            await LoadData();
+        }
+    }
+
+    private async Task OnSearchChanged()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task OnFilterChanged()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            await LoadData();
+        }
+    }
+
+    private void OpenCreateModal()
+    {
+        currentAnnouncement = new AnnouncementRequest { Status = "Draft", Priority = "Medium", PublishDate = DateTime.Now };
+        isEditMode = false;
+        showModal = true;
+    }
+
+    private void EditAnnouncement(AnnouncementResponse announcement)
+    {
+        currentAnnouncement = new AnnouncementRequest
+        {
+            Announcement_ID = announcement.Announcement_ID,
+            Title = announcement.Title,
+            Content = announcement.Content,
+            Priority = announcement.Priority,
+            Category = announcement.Category,
+            Status = announcement.Status,
+            PublishDate = announcement.PublishDate,
+            ExpiryDate = announcement.ExpiryDate,
+            IsPinned = announcement.IsPinned
+        };
+        isEditMode = true;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentAnnouncement = new();
+    }
+
+    private async Task SaveAnnouncement()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                await Http.PutAsJsonAsync($"/api/announcements/{currentAnnouncement.Announcement_ID}", currentAnnouncement);
+                await JSRuntime.InvokeVoidAsync("alert", "Announcement updated successfully!");
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("/api/announcements", currentAnnouncement);
+                await JSRuntime.InvokeVoidAsync("alert", "Announcement created successfully!");
+            }
+            
+            CloseModal();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving announcement: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteAnnouncement(AnnouncementResponse announcement)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the announcement '{announcement.Title}'?"))
+        {
+            try
+            {
+                await Http.DeleteAsync($"/api/announcements/{announcement.Announcement_ID}");
+                await JSRuntime.InvokeVoidAsync("alert", "Announcement deleted successfully!");
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error deleting announcement: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ViewStats(AnnouncementResponse announcement)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"Announcement Stats:\n\nTitle: {announcement.Title}\nViews: {announcement.ViewCount}\nCreated: {announcement.DateCreated?.ToString("MMM dd, yyyy")}\nAuthor: {announcement.AuthorName}");
+    }
+
+    private string GetPriorityBadgeClass(string priority)
+    {
+        return priority switch
+        {
+            "Low" => "bg-success bg-opacity-10 text-success",
+            "Medium" => "bg-info bg-opacity-10 text-info",
+            "High" => "bg-warning bg-opacity-10 text-warning",
+            "Urgent" => "bg-danger bg-opacity-10 text-danger",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Active" => "bg-success bg-opacity-10 text-success",
+            "Draft" => "bg-secondary bg-opacity-10 text-secondary",
+            "Scheduled" => "bg-info bg-opacity-10 text-info",
+            "Expired" => "bg-warning bg-opacity-10 text-warning",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    public class AnnouncementResponse
+    {
+        public int Announcement_ID { get; set; }
+        public string Title { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string Priority { get; set; } = "";
+        public string? Category { get; set; }
+        public string Status { get; set; } = "";
+        public DateTime? PublishDate { get; set; }
+        public DateTime? ExpiryDate { get; set; }
+        public DateTime? DateCreated { get; set; }
+        public string? AuthorName { get; set; }
+        public int ViewCount { get; set; }
+        public bool IsPinned { get; set; }
+    }
+
+    public class AnnouncementListResponse
+    {
+        public List<AnnouncementResponse> Items { get; set; } = new();
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+    }
+}

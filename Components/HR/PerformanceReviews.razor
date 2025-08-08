@@ -1,0 +1,596 @@
+@page "/performance-reviews"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-star me-2"></i>Performance Reviews
+                    </h1>
+                    <p class="text-muted mb-0">Track and manage employee performance evaluations</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/templates')">
+                        <i class="bi bi-file-earmark-text me-2"></i>Review Templates
+                    </button>
+                    <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/new')">
+                        <i class="bi bi-plus-circle me-2"></i>New Review
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Overview Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clipboard-check fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Total Reviews</h6>
+                            <h2 class="mb-0 fw-bold">@performanceReviews.Count</h2>
+                            <small class="opacity-75">All time</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-clock-history fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Pending Reviews</h6>
+                            <h2 class="mb-0 fw-bold">@performanceReviews.Count(r => r.Status == "Pending")</h2>
+                            <small class="opacity-75">Awaiting completion</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-graph-up fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">Avg. Score</h6>
+                            <h2 class="mb-0 fw-bold">@GetAverageScore().ToString("F1")</h2>
+                            <small class="opacity-75">Out of 5.0</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="card-body text-white">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calendar-check fs-1"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="card-title mb-1 opacity-75">This Quarter</h6>
+                            <h2 class="mb-0 fw-bold">@GetQuarterlyReviews()</h2>
+                            <small class="opacity-75">Completed reviews</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-medium text-muted">Search Reviews</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0" 
+                                       @bind="searchQuery" @oninput="OnSearchInput"
+                                       placeholder="Search by employee name...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Status</label>
+                            <select class="form-select" @bind="selectedStatus" @bind:after="OnFilterChange">
+                                <option value="">All Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Approved">Approved</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Review Period</label>
+                            <select class="form-select" @bind="selectedPeriod" @bind:after="OnFilterChange">
+                                <option value="">All Periods</option>
+                                <option value="Q1-2025">Q1 2025</option>
+                                <option value="Q2-2025">Q2 2025</option>
+                                <option value="Q3-2025">Q3 2025</option>
+                                <option value="Q4-2025">Q4 2025</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-medium text-muted">Score Range</label>
+                            <select class="form-select" @bind="selectedScoreRange" @bind:after="OnFilterChange">
+                                <option value="">All Scores</option>
+                                <option value="5">5 Stars</option>
+                                <option value="4">4 Stars</option>
+                                <option value="3">3 Stars</option>
+                                <option value="2">2 Stars</option>
+                                <option value="1">1 Star</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button class="btn btn-outline-secondary" @onclick="ClearFilters">
+                                    <i class="bi bi-x-circle me-1"></i>Clear
+                                </button>
+                                <button class="btn btn-outline-primary" @onclick="ExportReviews">
+                                    <i class="bi bi-download me-1"></i>Export
+                                </button>
+                                <button class="btn btn-outline-info" @onclick="ViewAnalytics">
+                                    <i class="bi bi-graph-up me-1"></i>Analytics
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Performance Reviews Grid -->
+        <div class="row g-4">
+            @if (performanceReviews.Any())
+            {
+                @foreach (var review in performanceReviews)
+                {
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card border-0 shadow-sm h-100 review-card">
+                            <div class="card-body">
+                                <!-- Header -->
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="flex-grow-1">
+                                        <h5 class="card-title mb-1 fw-bold">Employee @review.Employee_ID</h5>
+                                        <p class="text-muted mb-0 small">@review.ReviewPeriod</p>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                                data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" @onclick="() => ViewReview(review.Review_ID)">
+                                                <i class="bi bi-eye me-2"></i>View Details</a></li>
+                                            <li><a class="dropdown-item" @onclick="() => EditReview(review.Review_ID)">
+                                                <i class="bi bi-pencil me-2"></i>Edit Review</a></li>
+                                            <li><a class="dropdown-item" @onclick="() => DuplicateReview(review.Review_ID)">
+                                                <i class="bi bi-files me-2"></i>Duplicate</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item text-danger" @onclick="() => DeleteReview(review.Review_ID)">
+                                                <i class="bi bi-trash me-2"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <!-- Status and Score -->
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <span class="badge bg-@GetStatusColor(review.Status) bg-opacity-10 text-@GetStatusColor(review.Status) border border-@GetStatusColor(review.Status) w-100 py-2">
+                                                <i class="bi bi-@GetStatusIcon(review.Status) me-1"></i>@review.Status
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="text-center">
+                                            <div class="bg-light rounded py-2">
+                                                <div class="fw-bold text-warning mb-1">
+                                                    @for (int i = 0; i < review.Score; i++)
+                                                    {
+                                                        <i class="bi bi-star-fill"></i>
+                                                    }
+                                                    @for (int i = review.Score; i < 5; i++)
+                                                    {
+                                                        <i class="bi bi-star text-muted"></i>
+                                                    }
+                                                </div>
+                                                <small class="text-muted">@review.Score.0/5.0</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Review Details -->
+                                <div class="mb-3">
+                                    <div class="row g-2 text-center">
+                                        <div class="col-6">
+                                            <div class="border rounded p-2">
+                                                <small class="text-muted d-block">Review Date</small>
+                                                <span class="fw-medium small">@review.ReviewDate.ToString("MMM dd, yyyy")</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="border rounded p-2">
+                                                <small class="text-muted d-block">Reviewer</small>
+                                                <span class="fw-medium small">Manager @review.Reviewer_ID</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Goals and Progress -->
+                                <div class="mb-3">
+                                    <h6 class="fw-medium mb-2">
+                                        <i class="bi bi-target me-1"></i>Key Metrics
+                                    </h6>
+                                    <div class="row g-1 small">
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="text-muted">Quality:</span>
+                                                <span class="fw-medium">@GetRandomMetric()%</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="text-muted">Productivity:</span>
+                                                <span class="fw-medium">@GetRandomMetric()%</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="text-muted">Teamwork:</span>
+                                                <span class="fw-medium">@GetRandomMetric()%</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="text-muted">Initiative:</span>
+                                                <span class="fw-medium">@GetRandomMetric()%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button class="btn btn-primary btn-sm flex-fill" 
+                                            @onclick="() => ViewReview(review.Review_ID)">
+                                        <i class="bi bi-eye me-1"></i>View
+                                    </button>
+                                    <button class="btn btn-outline-primary btn-sm flex-fill"
+                                            @onclick="() => EditReview(review.Review_ID)">
+                                        <i class="bi bi-pencil me-1"></i>Edit
+                                    </button>
+                                    @if (review.Status == "Completed")
+                                    {
+                                        <button class="btn btn-outline-success btn-sm flex-fill"
+                                                @onclick="() => ApproveReview(review.Review_ID)">
+                                            <i class="bi bi-check me-1"></i>Approve
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="bi bi-star text-muted" style="font-size: 4rem;"></i>
+                        <h4 class="text-muted mt-3">No performance reviews found</h4>
+                        <p class="text-muted">Start creating performance reviews to track employee progress.</p>
+                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/new')">
+                            <i class="bi bi-plus-circle me-2"></i>Create First Review
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Review Cycle Management -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-arrow-repeat me-2"></i>Review Cycle Management
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="StartQuarterlyReviews">
+                                    <i class="bi bi-calendar-check fs-4 mb-2"></i>
+                                    Start Quarterly Reviews
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/performance-reviews/360')">
+                                    <i class="bi bi-people fs-4 mb-2"></i>
+                                    360° Reviews
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/goals')">
+                                    <i class="bi bi-target fs-4 mb-2"></i>
+                                    Goal Setting
+                                </button>
+                            </div>
+                            <div class="col-md-3">
+                                <button class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
+                                        @onclick="() => Navigation.NavigateTo('/feedback')">
+                                    <i class="bi bi-chat-square-text fs-4 mb-2"></i>
+                                    Continuous Feedback
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .review-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .review-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+</style>
+
+@code {
+    private List<PerformanceReviewResponse> performanceReviews = new();
+    private bool isLoading = true;
+    private string searchQuery = "";
+    private string selectedStatus = "";
+    private string selectedPeriod = "";
+    private string selectedScoreRange = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPerformanceReviews();
+        isLoading = false;
+    }
+
+    private async Task LoadPerformanceReviews()
+    {
+        try
+        {
+            var url = "/api/performancereviews";
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(searchQuery))
+                queryParams.Add($"q={Uri.EscapeDataString(searchQuery)}");
+            
+            if (!string.IsNullOrEmpty(selectedStatus))
+                queryParams.Add($"status={selectedStatus}");
+            
+            if (!string.IsNullOrEmpty(selectedPeriod))
+                queryParams.Add($"period={selectedPeriod}");
+
+            if (!string.IsNullOrEmpty(selectedScoreRange))
+                queryParams.Add($"score={selectedScoreRange}");
+
+            if (queryParams.Any())
+                url += "?" + string.Join("&", queryParams);
+
+            var response = await Http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                performanceReviews = await response.Content.ReadFromJsonAsync<List<PerformanceReviewResponse>>() ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading performance reviews: {ex.Message}");
+        }
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        await LoadPerformanceReviews();
+    }
+
+    private async Task OnFilterChange()
+    {
+        await LoadPerformanceReviews();
+    }
+
+    private async Task ClearFilters()
+    {
+        searchQuery = "";
+        selectedStatus = "";
+        selectedPeriod = "";
+        selectedScoreRange = "";
+        await LoadPerformanceReviews();
+    }
+
+    private void ViewReview(int reviewId)
+    {
+        Navigation.NavigateTo($"/performance-reviews/{reviewId}");
+    }
+
+    private void EditReview(int reviewId)
+    {
+        Navigation.NavigateTo($"/performance-reviews/{reviewId}/edit");
+    }
+
+    private async Task DuplicateReview(int reviewId)
+    {
+        try
+        {
+            var response = await Http.PostAsync($"/api/performancereviews/{reviewId}/duplicate", null);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadPerformanceReviews();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error duplicating review: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteReview(int reviewId)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/performancereviews/{reviewId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadPerformanceReviews();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting review: {ex.Message}");
+        }
+    }
+
+    private async Task ApproveReview(int reviewId)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"/api/performancereviews/{reviewId}/approve", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadPerformanceReviews();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error approving review: {ex.Message}");
+        }
+    }
+
+    private Task ExportReviews()
+    {
+        Console.WriteLine("Exporting performance reviews...");
+        return Task.CompletedTask;
+    }
+
+    private void ViewAnalytics()
+    {
+        Navigation.NavigateTo("/analytics?view=performance");
+    }
+
+    private Task StartQuarterlyReviews()
+    {
+        Console.WriteLine("Starting quarterly review cycle...");
+        return Task.CompletedTask;
+    }
+
+    private double GetAverageScore()
+    {
+        if (!performanceReviews.Any()) return 0;
+        return performanceReviews.Average(r => r.Score);
+    }
+
+    private int GetQuarterlyReviews()
+    {
+        var currentQuarter = (DateTime.Now.Month - 1) / 3 + 1;
+        var currentYear = DateTime.Now.Year;
+        return performanceReviews.Count(r => 
+            r.ReviewDate.Year == currentYear && 
+            ((r.ReviewDate.Month - 1) / 3 + 1) == currentQuarter);
+    }
+
+    private int GetRandomMetric()
+    {
+        // TODO: Replace with actual API call to get performance metrics
+        return 0; // Previously: Random.Shared.Next(75, 95);
+    }
+
+    private string GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Pending" => "warning",
+            "In Progress" => "info",
+            "Completed" => "success",
+            "Approved" => "primary",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusIcon(string status)
+    {
+        return status switch
+        {
+            "Pending" => "clock",
+            "In Progress" => "arrow-clockwise",
+            "Completed" => "check-circle",
+            "Approved" => "patch-check",
+            _ => "circle"
+        };
+    }
+
+    public class PerformanceReviewResponse
+    {
+        public int Review_ID { get; set; }
+        public int Employee_ID { get; set; }
+        public int Reviewer_ID { get; set; }
+        public string ReviewPeriod { get; set; } = string.Empty;
+        public DateTime ReviewDate { get; set; }
+        public int Score { get; set; }
+        public string Comments { get; set; } = string.Empty;
+        public string Goals { get; set; } = string.Empty;
+        public string Achievements { get; set; } = string.Empty;
+        public string AreasOfImprovement { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+    }
+}

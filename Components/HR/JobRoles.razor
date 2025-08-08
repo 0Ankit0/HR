@@ -1,0 +1,700 @@
+@page "/job-roles"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@using global::HR.Models
+@using System.Text.Json
+@using System.Text
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 text-primary fw-bold mb-0">
+                        <i class="bi bi-briefcase me-2"></i>Job Roles
+                    </h1>
+                    <p class="text-muted mb-0">Define and manage job roles across the organization</p>
+                </div>
+                <button class="btn btn-primary" @onclick="OpenCreateRoleModal">
+                    <i class="bi bi-plus-circle me-2"></i>Create Job Role
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-briefcase text-primary fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@totalJobRoles</div>
+                            <div class="text-muted small">Total Job Roles</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-check-circle text-success fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@activeJobRoles</div>
+                            <div class="text-muted small">Active Roles</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-diagram-3 text-info fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@uniqueDepartments</div>
+                            <div class="text-muted small">Departments</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-star text-warning fs-4"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold fs-4">@seniorRoles</div>
+                            <div class="text-muted small">Senior Level</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0">
+                    <i class="bi bi-search text-muted"></i>
+                </span>
+                <input type="text" class="form-control border-start-0" placeholder="Search job roles..."
+                    @bind="searchQuery" @onkeyup="OnSearchChanged" />
+            </div>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" @bind="departmentFilter" @bind:after="ApplyFilters">
+                <option value="">All Departments</option>
+                <option value="HR">HR</option>
+                <option value="IT">IT</option>
+                <option value="Finance">Finance</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Sales">Sales</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" @bind="levelFilter" @bind:after="ApplyFilters">
+                <option value="">All Levels</option>
+                <option value="Entry">Entry Level</option>
+                <option value="Mid">Mid Level</option>
+                <option value="Senior">Senior Level</option>
+                <option value="Lead">Lead Level</option>
+                <option value="Manager">Manager</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select" @bind="statusFilter" @bind:after="ApplyFilters">
+                <option value="">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Draft">Draft</option>
+            </select>
+        </div>
+        <div class="col-md-2 text-end">
+            <button class="btn btn-outline-secondary" @onclick="ExportData">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Job Roles Cards -->
+    <div class="row">
+        @if (isLoading)
+        {
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div class="mt-2 text-muted">Loading job roles...</div>
+                </div>
+            </div>
+        }
+        else if (pagedJobRoles.Any())
+        {
+            @foreach (var role in pagedJobRoles)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-transparent border-bottom-0 pb-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="d-flex">
+                                    <span class="badge @GetDepartmentBadgeClass(role.Department) me-2">@role.Department</span>
+                                    <span class="badge @GetLevelBadgeClass(role.Level)">@role.Level</span>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-link btn-sm text-muted" type="button" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="#" @onclick="() => ViewRole(role.JobRoleID)">
+                                                <i class="bi bi-eye me-2"></i>View Details
+                                            </a></li>
+                                        <li><a class="dropdown-item" href="#" @onclick="() => EditRole(role)">
+                                                <i class="bi bi-pencil me-2"></i>Edit Role
+                                            </a></li>
+                                        <li><a class="dropdown-item" href="#" @onclick="() => CreateJobPosting(role.JobRoleID)">
+                                                <i class="bi bi-plus-circle me-2"></i>Create Job Posting
+                                            </a></li>
+                                        <li>
+                                            <hr class="dropdown-divider">
+                                        </li>
+                                        <li><a class="dropdown-item text-danger" href="#"
+                                                @onclick="() => DeleteRole(role.JobRoleID)">
+                                                <i class="bi bi-trash me-2"></i>Delete
+                                            </a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="bg-primary bg-opacity-10 p-3 rounded me-3">
+                                    <i class="bi bi-briefcase text-primary fs-5"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title fw-bold mb-1">@role.Title</h6>
+                                    <p class="text-muted small mb-0">@role.Department Department</p>
+                                </div>
+                            </div>
+
+                            <p class="card-text text-muted small mb-3" style="height: 60px; overflow: hidden;">
+                                @role.Description
+                            </p>
+
+                            <div class="mb-3">
+                                <h6 class="small fw-semibold mb-2">Key Responsibilities:</h6>
+                                <ul class="small text-muted mb-0" style="max-height: 100px; overflow: hidden;">
+                                    @foreach (var responsibility in role.KeyResponsibilities.Take(3))
+                                    {
+                                        <li>@responsibility</li>
+                                    }
+                                    @if (role.KeyResponsibilities.Count > 3)
+                                    {
+                                        <li class="text-primary">+@(role.KeyResponsibilities.Count - 3) more...</li>
+                                    }
+                                </ul>
+                            </div>
+
+                            <div class="row g-2 text-center mb-3">
+                                <div class="col-6">
+                                    <div class="bg-light rounded p-2">
+                                        <div class="small text-muted">Min Experience</div>
+                                        <div class="fw-semibold small">@role.MinExperience years</div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-light rounded p-2">
+                                        <div class="small text-muted">Salary Range</div>
+                                        <div class="fw-semibold small">@role.SalaryRange</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge @GetStatusBadgeClass(role.Status)">@role.Status</span>
+                                <small class="text-muted">Updated @role.LastModified.ToString("MMM dd")</small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent border-top-0 pt-0">
+                            <div class="btn-group w-100">
+                                <button class="btn btn-outline-primary btn-sm" @onclick="() => ViewRole(role.JobRoleID)">
+                                    <i class="bi bi-eye me-1"></i>View
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => EditRole(role)">
+                                    <i class="bi bi-pencil me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-outline-success btn-sm"
+                                    @onclick="() => CreateJobPosting(role.JobRoleID)">
+                                    <i class="bi bi-plus me-1"></i>Post Job
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Pagination -->
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div class="text-muted small">
+                        Showing @((currentPage - 1) * pageSize + 1) to @Math.Min(currentPage * pageSize,
+                                            filteredJobRoles.Count) of @filteredJobRoles.Count results
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => ChangePage(currentPage - 1)"
+                                disabled="@(currentPage == 1)">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                        </li>
+                        @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                <li class="page-item @(i == currentPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => ChangePage(currentPage + 1)"
+                                    disabled="@(currentPage == totalPages)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="col-12">
+                <div class="text-center py-5">
+                    <i class="bi bi-briefcase text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="text-muted mt-3">No job roles found</h5>
+                    <p class="text-muted">Create your first job role to define positions in your organization.</p>
+                    <button class="btn btn-primary" @onclick="OpenCreateRoleModal">
+                        <i class="bi bi-plus-circle me-2"></i>Create Job Role
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Create/Edit Job Role Modal -->
+<div class="modal fade @(showRoleModal ? "show d-block" : "")" tabindex="-1"
+    style="@(showRoleModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-briefcase me-2"></i>@(isEditing ? "Edit Job Role" : "Create New Job Role")
+                </h5>
+                <button type="button" class="btn-close" @onclick="CloseRoleModal"></button>
+            </div>
+            <EditForm Model="currentJobRole" OnValidSubmit="SaveJobRole">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">Job Title <span class="text-danger">*</span></label>
+                                <InputText @bind-Value="currentJobRole.Title" class="form-control"
+                                    placeholder="Enter job title" />
+                                <ValidationMessage For="() => currentJobRole.Title" class="text-danger small" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <InputSelect @bind-Value="currentJobRole.Status" class="form-select">
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                    <option value="Draft">Draft</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Department</label>
+                                <InputSelect @bind-Value="currentJobRole.Department" class="form-select">
+                                    <option value="HR">HR</option>
+                                    <option value="IT">IT</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Marketing">Marketing</option>
+                                    <option value="Sales">Sales</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Level</label>
+                                <InputSelect @bind-Value="currentJobRole.Level" class="form-select">
+                                    <option value="Entry">Entry Level</option>
+                                    <option value="Mid">Mid Level</option>
+                                    <option value="Senior">Senior Level</option>
+                                    <option value="Lead">Lead Level</option>
+                                    <option value="Manager">Manager</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Min Experience (years)</label>
+                                <InputNumber @bind-Value="currentJobRole.MinExperience" class="form-control" min="0"
+                                    max="20" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <InputTextArea @bind-Value="currentJobRole.Description" class="form-control" rows="3"
+                            placeholder="Describe the job role" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Salary Range</label>
+                        <InputText @bind-Value="currentJobRole.SalaryRange" class="form-control"
+                            placeholder="e.g., $50,000 - $70,000" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Key Responsibilities</label>
+                        <InputTextArea @bind-Value="responsibilitiesText" class="form-control" rows="4"
+                            placeholder="Enter each responsibility on a new line" />
+                        <div class="form-text">Enter each responsibility on a separate line</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Required Skills</label>
+                        <InputTextArea @bind-Value="skillsText" class="form-control" rows="3"
+                            placeholder="Enter each skill on a new line" />
+                        <div class="form-text">Enter each skill on a separate line</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseRoleModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-check-circle me-2"></i>@(isEditing ? "Update" : "Create") Job Role
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<JobRoleResponse> jobRoles = new();
+    private List<JobRoleResponse> filteredJobRoles = new();
+    private List<JobRoleResponse> pagedJobRoles = new();
+    private string searchQuery = string.Empty;
+    private string departmentFilter = string.Empty;
+    private string levelFilter = string.Empty;
+    private string statusFilter = string.Empty;
+    private bool isLoading = true;
+    private bool showRoleModal = false;
+    private bool isEditing = false;
+    private bool isSaving = false;
+
+    // Pagination
+    private int currentPage = 1;
+    private int pageSize = 9;
+    private int totalPages => (int)Math.Ceiling((double)filteredJobRoles.Count / pageSize);
+
+    // Stats
+    private int totalJobRoles => jobRoles.Count;
+    private int activeJobRoles => jobRoles.Count(jr => jr.Status == "Active");
+    private int uniqueDepartments => jobRoles.Select(jr => jr.Department).Distinct().Count();
+    private int seniorRoles => jobRoles.Count(jr => jr.Level == "Senior" || jr.Level == "Lead" || jr.Level == "Manager");
+
+    private JobRoleRequest currentJobRole = new();
+    private string responsibilitiesText = string.Empty;
+    private string skillsText = string.Empty;
+    private int editingId = 0;
+
+    public class ApiResponse
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<JobRoleResponse> Items { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadJobRoles();
+    }
+
+    private async Task LoadJobRoles()
+    {
+        isLoading = true;
+        try
+        {
+            var response = await Http.GetAsync("/api/jobroles");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ApiResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                if (result?.Items != null)
+                {
+                    jobRoles = result.Items;
+                }
+                else
+                {
+                    jobRoles = new List<JobRoleResponse>();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"API Error: {response.StatusCode} - {await response.Content.ReadAsStringAsync()}");
+                jobRoles = new List<JobRoleResponse>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading job roles: {ex.Message}");
+            jobRoles = new List<JobRoleResponse>();
+        }
+        finally
+        {
+            isLoading = false;
+            ApplyFilters();
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredJobRoles = jobRoles.Where(jr =>
+        (string.IsNullOrEmpty(searchQuery) ||
+        jr.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+        jr.Description.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+        jr.Department.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(departmentFilter) || jr.Department == departmentFilter) &&
+        (string.IsNullOrEmpty(levelFilter) || jr.Level == levelFilter) &&
+        (string.IsNullOrEmpty(statusFilter) || jr.Status == statusFilter)
+        ).ToList();
+
+        currentPage = 1;
+        UpdatePagedResults();
+    }
+
+    private void UpdatePagedResults()
+    {
+        pagedJobRoles = filteredJobRoles
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged()
+    {
+        await Task.Delay(300);
+        ApplyFilters();
+    }
+
+    private void ChangePage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagedResults();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "bg-success",
+        "Inactive" => "bg-secondary",
+        "Draft" => "bg-warning",
+        _ => "bg-secondary"
+    };
+
+    private string GetDepartmentBadgeClass(string department) => department switch
+    {
+        "IT" => "bg-primary",
+        "HR" => "bg-info",
+        "Finance" => "bg-success",
+        "Marketing" => "bg-warning",
+        "Sales" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private string GetLevelBadgeClass(string level) => level switch
+    {
+        "Entry" => "bg-light text-dark",
+        "Mid" => "bg-info",
+        "Senior" => "bg-warning",
+        "Lead" => "bg-success",
+        "Manager" => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private void OpenCreateRoleModal()
+    {
+        currentJobRole = new JobRoleRequest();
+        responsibilitiesText = string.Empty;
+        skillsText = string.Empty;
+        isEditing = false;
+        showRoleModal = true;
+    }
+
+    private void EditRole(JobRoleResponse role)
+    {
+        currentJobRole = new JobRoleRequest
+        {
+            Title = role.Title,
+            Description = role.Description,
+            Department = role.Department,
+            Level = role.Level,
+            Status = role.Status,
+            MinExperience = role.MinExperience,
+            SalaryRange = role.SalaryRange,
+            KeyResponsibilities = new List<string>(role.KeyResponsibilities),
+            RequiredSkills = new List<string>(role.RequiredSkills)
+        };
+        responsibilitiesText = string.Join("\n", role.KeyResponsibilities);
+        skillsText = string.Join("\n", role.RequiredSkills);
+        isEditing = true;
+        editingId = role.JobRoleID;
+        showRoleModal = true;
+    }
+
+    private void CloseRoleModal()
+    {
+        showRoleModal = false;
+        currentJobRole = new();
+        responsibilitiesText = string.Empty;
+        skillsText = string.Empty;
+        editingId = 0;
+    }
+
+    private async Task SaveJobRole()
+    {
+        isSaving = true;
+        try
+        {
+            // Parse responsibilities and skills
+            currentJobRole.KeyResponsibilities = responsibilitiesText.Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+            currentJobRole.RequiredSkills = skillsText.Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            HttpResponseMessage response;
+
+            if (isEditing)
+            {
+                // Update existing job role
+                var json = JsonSerializer.Serialize(currentJobRole, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                response = await Http.PutAsync($"/api/jobroles/{editingId}", content);
+            }
+            else
+            {
+                // Create new job role
+                var json = JsonSerializer.Serialize(currentJobRole, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                response = await Http.PostAsync("/api/jobroles", content);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadJobRoles(); // Reload the data from the API
+                CloseRoleModal();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"API Error: {response.StatusCode} - {errorContent}");
+                // Show error to user or handle appropriately
+                await JSRuntime.InvokeVoidAsync("alert", $"Error saving job role: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving job role: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Error saving job role: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+    private void ViewRole(int jobRoleId)
+    {
+        Console.WriteLine($"Viewing job role {jobRoleId}");
+    }
+
+    private void CreateJobPosting(int jobRoleId)
+    {
+        Console.WriteLine($"Creating job posting for role {jobRoleId}");
+    }
+
+    private async Task DeleteRole(int jobRoleId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this job role?"))
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"/api/jobroles/{jobRoleId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadJobRoles(); // Reload data from API
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"API Error: {response.StatusCode} - {errorContent}");
+                    await JSRuntime.InvokeVoidAsync("alert", $"Error deleting job role: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting job role: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", $"Error deleting job role: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ExportData()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Export functionality would be implemented here");
+    }
+}
