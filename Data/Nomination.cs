@@ -15,6 +15,7 @@ namespace HR.Data
         public string Reason { get; set; } = string.Empty;
         public DateTime DateNominated { get; set; }
         public bool IsAwarded { get; set; }
+        public string? NominatedBy { get; set; }
         // Soft delete and audit fields
         public bool IsDeleted { get; set; }
         public DateTime CreatedAt { get; set; }
