@@ -39,6 +39,8 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
 //builder.Services.AddRazorPages();
 
+builder.Services.AddEndpoints();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -61,9 +63,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Register all API endpoints via reflection
-app.RegisterAllApiEndpoints();
-
+app.MapEndpoints();
 
 app.Run();
 public class TwoFactorLoginRequest
