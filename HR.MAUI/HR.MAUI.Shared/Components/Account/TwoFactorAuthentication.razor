@@ -1,102 +1,110 @@
-@using System.Net.Http.Json
+@page "/account/two-factor-authentication"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
 <h1>Two-factor authentication (2FA)</h1>
 
-@if (!string.IsNullOrEmpty(statusMessage))
+@if (!isAuthenticated)
 {
-    <div class="alert alert-info">@statusMessage</div>
-}
-
-@if (isLoading)
-{
-    <p>Loading...</p>
-}
-else if (loadError != null)
-{
-    <div class="alert alert-danger">@loadError</div>
+    <p>You must be logged in to manage two-factor authentication.</p>
 }
 else
 {
-    @if (is2faEnabled)
+    @if (!string.IsNullOrEmpty(statusMessage))
     {
-        if (isMachineRemembered)
-        {
-            <div class="mb-3 d-flex align-items-center">
-                <div class="flex-grow-1 position-relative">
-                    <span class="form-control-plaintext text-body">Forget this browser for 2FA.</span>
-                </div>
-                <button type="button" class="btn btn-outline-danger ms-2" @onclick="ForgetBrowser" disabled="@isProcessing">
-                    Forget this browser
-                </button>
-            </div>
-        }
-        <div class="mb-3 d-flex align-items-center">
-            <div class="flex-grow-1 position-relative">
-                <span class="form-control-plaintext text-body">Disable two-factor authentication.</span>
-            </div>
-            <a href="/account/disable2fa" class="btn btn-outline-danger ms-2">Disable 2FA</a>
-        </div>
-        <div class="mb-3 d-flex align-items-center">
-            <div class="flex-grow-1 position-relative">
-                <span class="form-control-plaintext text-body">Generate new recovery codes.</span>
-            </div>
-            <a href="/account/generaterecoverycodes" class="btn btn-outline-danger ms-2">Generate</a>
-        </div>
+        <div class="alert alert-info">@statusMessage</div>
     }
 
-    <h4>Authenticator app</h4>
-    @if (!hasAuthenticator)
+    @if (isLoading)
     {
-        <div class="mb-3 d-flex align-items-center">
-            <div class="flex-grow-1 position-relative">
-                <span class="form-control-plaintext text-body">Add an authenticator app for 2FA.</span>
-            </div>
-            <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Add authenticator app</a>
-        </div>
+        <p>Loading...</p>
+    }
+    else if (loadError != null)
+    {
+        <div class="alert alert-danger">@loadError</div>
     }
     else
     {
-        <div class="mb-3 d-flex align-items-center">
-            <div class="flex-grow-1 position-relative">
-                <span class="form-control-plaintext text-body">Set up your authenticator app again.</span>
-            </div>
-            <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Set up</a>
-        </div>
-        <div class="mb-3 d-flex align-items-center">
-            <div class="flex-grow-1 position-relative">
-                <span class="form-control-plaintext text-body">Reset your authenticator app.</span>
-            </div>
-            <button type="button" id="reset-authenticator" class="btn btn-outline-danger ms-2" @onclick="() => showResetAuthenticatorModal = true">Reset</button>
-        </div>
-        @if (showResetAuthenticatorModal)
+        @if (is2faEnabled)
         {
-            <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Reset Authenticator App</h5>
-                        </div>
-                        <div class="modal-body">
-                            <p>
-                                If you reset your authenticator key your authenticator app will not work until you reconfigure it.<br /><br />
-                                This process disables 2FA until you verify your authenticator app. If you do not complete your authenticator app configuration you may lose access to your account.
-                            </p>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-danger" @onclick="ConfirmResetAuthenticator">Reset</button>
-                            <button type="button" class="btn btn-secondary" @onclick="() => showResetAuthenticatorModal = false">Cancel</button>
+            if (isMachineRemembered)
+            {
+                <div class="mb-3 d-flex align-items-center">
+                    <div class="flex-grow-1 position-relative">
+                        <span class="form-control-plaintext text-body">Forget this browser for 2FA.</span>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger ms-2" @onclick="ForgetBrowser" disabled="@isProcessing">
+                        Forget this browser
+                    </button>
+                </div>
+            }
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Disable two-factor authentication.</span>
+                </div>
+                <a href="/account/disable2fa" class="btn btn-outline-danger ms-2">Disable 2FA</a>
+            </div>
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Generate new recovery codes.</span>
+                </div>
+                <a href="/account/generaterecoverycodes" class="btn btn-outline-danger ms-2">Generate</a>
+            </div>
+        }
+
+        <h4>Authenticator app</h4>
+        @if (!hasAuthenticator)
+        {
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Add an authenticator app for 2FA.</span>
+                </div>
+                <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Add authenticator app</a>
+            </div>
+        }
+        else
+        {
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Set up your authenticator app again.</span>
+                </div>
+                <a id="enable-authenticator" href="/account/enableauthenticator" class="btn btn-outline-primary ms-2">Set up</a>
+            </div>
+            <div class="mb-3 d-flex align-items-center">
+                <div class="flex-grow-1 position-relative">
+                    <span class="form-control-plaintext text-body">Reset your authenticator app.</span>
+                </div>
+                <button type="button" id="reset-authenticator" class="btn btn-outline-danger ms-2" @onclick="() => showResetAuthenticatorModal = true">Reset</button>
+            </div>
+            @if (showResetAuthenticatorModal)
+            {
+                <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5);">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Reset Authenticator App</h5>
+                            </div>
+                            <div class="modal-body">
+                                <p>
+                                    If you reset your authenticator key your authenticator app will not work until you reconfigure it.<br /><br />
+                                    This process disables 2FA until you verify your authenticator app. If you do not complete your authenticator app configuration you may lose access to your account.
+                                </p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-danger" @onclick="ConfirmResetAuthenticator">Reset</button>
+                                <button type="button" class="btn btn-secondary" @onclick="() => showResetAuthenticatorModal = false">Cancel</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            }
         }
     }
 }
 
 @code {
+    private bool isAuthenticated = false;
     private bool isLoading = true;
     private bool isProcessing = false;
     private string? loadError;
@@ -110,6 +118,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
         await LoadAsync();
         var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("statusMessage", out var msg))
@@ -199,4 +208,4 @@ else
     {
         public bool isRemembered { get; set; }
     }
-}
+}}

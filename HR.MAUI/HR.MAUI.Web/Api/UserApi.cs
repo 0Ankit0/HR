@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
-using static HR.Components.Account.Email;
-using static HR.Components.Account.Phone;
+using static HR.MAUI.Shared.Components.Account.Email;
+using static HR.MAUI.Shared.Components.Account.Phone;
 
 namespace HR.Api
 {

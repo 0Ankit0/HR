@@ -25,12 +25,12 @@
 </p>
 
 @code{
-    [CascadingParameter]
-    private HttpContext? HttpContext { get; set; }
-
     private string? RequestId { get; set; }
     private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
 
-    protected override void OnInitialized() =>
-        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+    protected override void OnInitialized()
+    {
+        // Use Activity.Current?.Id for all platforms; HttpContext.TraceIdentifier is server-only
+        RequestId = Activity.Current?.Id ?? Guid.NewGuid().ToString();
+    }
 }

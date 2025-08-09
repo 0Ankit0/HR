@@ -2,9 +2,8 @@
 @using global::HR.Models
 @using System.Text.Json
 @using System.Text
-@using Microsoft.JSInterop
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
+@inject IAlertService AlertService
 
 <div class="container-fluid">
     <div class="row">
@@ -227,7 +226,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("console.error", "Error loading announcements:", ex.Message);
+            await AlertService.ShowAlert($"Error loading announcements: {ex.Message}", "Error");
         }
     }
 
@@ -331,23 +330,22 @@
             {
                 await LoadAnnouncements();
                 CloseModal();
-                await JSRuntime.InvokeVoidAsync("alert", $"Announcement {(isEditMode ? "updated" : "created")} successfully!");
+                await AlertService.ShowAlert($"Announcement {(isEditMode ? "updated" : "created")} successfully!", "Success");
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Error saving announcement. Please try again.");
+                await AlertService.ShowAlert("Error saving announcement. Please try again.", "Error");
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("console.error", "Error saving announcement:", ex.Message);
-            await JSRuntime.InvokeVoidAsync("alert", "Error saving announcement. Please try again.");
+            await AlertService.ShowAlert($"Error saving announcement: {ex.Message}", "Error");
         }
     }
 
     private async Task DeleteAnnouncement(AnnouncementResponse announcement)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the announcement '{announcement.Title}'?"))
+        if (await AlertService.ShowConfirm($"Are you sure you want to delete the announcement '{announcement.Title}'?"))
         {
             try
             {
@@ -355,17 +353,16 @@
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadAnnouncements();
-                    await JSRuntime.InvokeVoidAsync("alert", "Announcement deleted successfully!");
+                    await AlertService.ShowAlert("Announcement deleted successfully!", "Success");
                 }
                 else
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting announcement. Please try again.");
+                    await AlertService.ShowAlert("Error deleting announcement. Please try again.", "Error");
                 }
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("console.error", "Error deleting announcement:", ex.Message);
-                await JSRuntime.InvokeVoidAsync("alert", "Error deleting announcement. Please try again.");
+                await AlertService.ShowAlert($"Error deleting announcement: {ex.Message}", "Error");
             }
         }
     }

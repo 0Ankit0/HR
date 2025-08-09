@@ -1,29 +1,36 @@
 @page "/account/unlock"
-@using System.Text
-@using System.Net.Http.Json
-@using Microsoft.AspNetCore.WebUtilities
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
+@using System.Text
+@using Microsoft.AspNetCore.WebUtilities
 
 <h1>Unlock Your Account</h1>
 <p>
     The system is processing your unlock request.
 </p>
 
-@if (!string.IsNullOrEmpty(Message))
+@if (!isAuthenticated)
 {
-    <div>@Message</div>
+    <p>You must be logged in to unlock your account.</p>
 }
-
-@if (!HasParams && !IsLoading)
+else
 {
-    <div class="alert alert-warning">Invalid unlock link. Please check your email and use the link provided.</div>
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <div>@Message</div>
+    }
+
+    @if (!HasParams && !IsLoading)
+    {
+        <div class="alert alert-warning">Invalid unlock link. Please check your email and use the link provided.</div>
+    }
 }
 
 @code {
     private string? Message;
     private bool IsLoading = false;
+    private bool isAuthenticated = false;
 
     [SupplyParameterFromQuery]
     public string? Email { get; set; }
@@ -34,6 +41,11 @@
     private string? DecodedCode { get; set; }
 
     private bool HasParams => !string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(EncodedCode);
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+    }
 
     protected override async Task OnParametersSetAsync()
     {

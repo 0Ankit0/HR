@@ -1,10 +1,14 @@
 @page "/account/externallogins"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
 <h1>Manage your external logins</h1>
-@if (isLoading)
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to view this page.</p>
+}
+else if (isLoading)
 {
     <p>Loading...</p>
 }
@@ -65,14 +69,19 @@ else
     private List<ExternalLoginDto> currentLogins = new();
     private List<ExternalLoginDto> otherLogins = new();
     private bool showRemoveButton = true;
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await Http.GetFromJsonAsync<ExternalLoginsResult>("/api/account/externallogins/manage");
-        if (result != null)
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (isAuthenticated)
         {
-            currentLogins = result.CurrentLogins;
-            otherLogins = result.OtherLogins;
+            var result = await Http.GetFromJsonAsync<ExternalLoginsResult>("/api/account/externallogins/manage");
+            if (result != null)
+            {
+                currentLogins = result.CurrentLogins;
+                otherLogins = result.OtherLogins;
+            }
         }
         isLoading = false;
     }

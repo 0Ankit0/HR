@@ -1,10 +1,15 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿@page "/account/phone"
+@using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
 <h3>Phone Number</h3>
-@if (isLoaded)
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to manage your phone number.</p>
+}
+else if (isLoaded)
 {
     <div class="row">
         <div class="col-md-12">
@@ -55,15 +60,21 @@ else
     private bool isPhoneConfirmed = false;
     private bool showChangePhone = false;
     private PhoneInputModel inputModel = new();
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/user/phone");
-        if (phone != null)
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        if (isAuthenticated)
         {
-            currentPhone = phone.PhoneNumber;
-            isPhoneConfirmed = phone.IsConfirmed;
-            isLoaded = true;
+            var phone = await Http.GetFromJsonAsync<PhoneDto>("/api/user/phone");
+            if (phone != null)
+            {
+                currentPhone = phone.PhoneNumber;
+                isPhoneConfirmed = phone.IsConfirmed;
+                isLoaded = true;
+            }
         }
     }
 

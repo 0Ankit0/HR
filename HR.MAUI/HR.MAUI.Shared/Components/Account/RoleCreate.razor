@@ -1,231 +1,240 @@
-@page "/account/roles/create"
-@page "/account/roles/edit/{RoleId}"
-@using System.Net.Http.Json
+@page "/account/role-create"
 @using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize(Roles = "Admin")]
+@inject IAuthService AuthService
 
-<h1>@(IsEditMode ? "Edit Role" : "Create Role")</h1>
+@if (!isAdmin)
+{
+    <p>You do not have permission to create roles.</p>
+}
+else
+{
+    <h1>@(IsEditMode ? "Edit Role" : "Create Role")</h1>
 
-<EditForm Model="roleModel" OnValidSubmit="HandleSubmit">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <InputText @bind-Value="roleModel.Name" class="form-control mb-2" placeholder="Role name" />
-    <button class="btn btn-primary" type="submit">@(IsEditMode ? "Save" : "Add Role")</button>
-    <a class="btn btn-secondary ms-2" href="/account/roles">Cancel</a>
-</EditForm>
+    <EditForm Model="roleModel" OnValidSubmit="HandleSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <InputText @bind-Value="roleModel.Name" class="form-control mb-2" placeholder="Role name" />
+        <button class="btn btn-primary" type="submit">@(IsEditMode ? "Save" : "Add Role")</button>
+        <a class="btn btn-secondary ms-2" href="/account/roles">Cancel</a>
+    </EditForm>
 
-<div class="accordion mt-4" id="advancedOptionsAccordion">
-    <div class="accordion-item">
-        <h2 class="accordion-header" id="advancedOptionsHeading">
-            <button class="accordion-button accordion-button-inline collapsed" type="button"
-                    @onclick="ToggleAdvancedOptions"
-                    aria-expanded="@showAdvancedOptions"
-                    aria-controls="advancedOptionsCollapse">
-                Advanced Options
-            </button>
-        </h2>
-        <div id="advancedOptionsCollapse"
-             class="accordion-collapse collapse @(showAdvancedOptions ? "show" : "")"
-             aria-labelledby="advancedOptionsHeading"
-             data-bs-parent="#advancedOptionsAccordion">
-            <div class="accordion-body">
-                <div class="card shadow-sm mb-3">
-                    <div class="card-header bg-light">
-                        <h3 class="h6 mb-0">Role Claims</h3>
-                    </div>
-                    <div class="card-body">
-                        <EditForm Model="newClaim" OnValidSubmit="AddClaimAsync">
-                            <div class="row g-2 align-items-end mb-3">
-                                <div class="col-md-5">
-                                    <label class="form-label mb-1">Claim Type</label>
-                                    <InputText @bind-Value="newClaim.Type" class="form-control" placeholder="Claim type" />
+    <div class="accordion mt-4" id="advancedOptionsAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="advancedOptionsHeading">
+                <button class="accordion-button accordion-button-inline collapsed" type="button"
+                        @onclick="ToggleAdvancedOptions"
+                        aria-expanded="@showAdvancedOptions"
+                        aria-controls="advancedOptionsCollapse">
+                    Advanced Options
+                </button>
+            </h2>
+            <div id="advancedOptionsCollapse"
+                 class="accordion-collapse collapse @(showAdvancedOptions ? "show" : "")"
+                 aria-labelledby="advancedOptionsHeading"
+                 data-bs-parent="#advancedOptionsAccordion">
+                <div class="accordion-body">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-light">
+                            <h3 class="h6 mb-0">Role Claims</h3>
+                        </div>
+                        <div class="card-body">
+                            <EditForm Model="newClaim" OnValidSubmit="AddClaimAsync">
+                                <div class="row g-2 align-items-end mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label mb-1">Claim Type</label>
+                                        <InputText @bind-Value="newClaim.Type" class="form-control" placeholder="Claim type" />
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label mb-1">Claim Value</label>
+                                        <InputText @bind-Value="newClaim.Value" class="form-control" placeholder="Claim value" />
+                                    </div>
+                                    <div class="col-md-2 d-grid">
+                                        <button class="btn btn-success" type="submit">Add Claim</button>
+                                    </div>
                                 </div>
-                                <div class="col-md-5">
-                                    <label class="form-label mb-1">Claim Value</label>
-                                    <InputText @bind-Value="newClaim.Value" class="form-control" placeholder="Claim value" />
-                                </div>
-                                <div class="col-md-2 d-grid">
-                                    <button class="btn btn-success" type="submit">Add Claim</button>
-                                </div>
-                            </div>
-                        </EditForm>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-hover table-sm mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Type</th>
-                                        <th>Value</th>
-                                        <th style="width: 90px;">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @if (roleClaims.Count == 0)
-                                    {
+                            </EditForm>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover table-sm mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td colspan="3" class="text-center text-muted">No claims assigned to this role.</td>
+                                            <th>Type</th>
+                                            <th>Value</th>
+                                            <th style="width: 90px;">Action</th>
                                         </tr>
-                                    }
-                                    else
-                                    {
-                                        @foreach (var claim in roleClaims)
+                                    </thead>
+                                    <tbody>
+                                        @if (roleClaims.Count == 0)
                                         {
                                             <tr>
-                                                <td>@claim.Type</td>
-                                                <td>@claim.Value</td>
-                                                <td>
-                                                    <button class="btn btn-danger btn-sm d-flex align-items-center justify-content-center gap-1"
-                                                            @onclick="() => RemoveClaimAsync(claim)">
-                                                        <i class="bi bi-x-circle"></i>
-                                                        <span>Remove</span>
-                                                    </button>
-                                                </td>
+                                                <td colspan="3" class="text-center text-muted">No claims assigned to this role.</td>
                                             </tr>
                                         }
-                                    }
-                                </tbody>
-                            </table>
+                                        else
+                                        {
+                                            @foreach (var claim in roleClaims)
+                                            {
+                                                <tr>
+                                                    <td>@claim.Type</td>
+                                                    <td>@claim.Value</td>
+                                                    <td>
+                                                        <button class="btn btn-danger btn-sm d-flex align-items-center justify-content-center gap-1"
+                                                                @onclick="() => RemoveClaimAsync(claim)">
+                                                            <i class="bi bi-x-circle"></i>
+                                                            <span>Remove</span>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-@if (!string.IsNullOrEmpty(statusMessage))
-{
-    <div class="alert alert-info mt-2">@statusMessage</div>
-}
-
-@code {
-    [Parameter] public string? RoleId { get; set; }
-    private RoleModel roleModel = new();
-    private string? statusMessage;
-    private bool IsEditMode => !string.IsNullOrEmpty(RoleId);
-    private RoleDto? loadedRole;
-
-    // Claims management
-    private List<ClaimDto> roleClaims = new();
-    private ClaimDto newClaim = new();
-
-    // Accordion state
-    private bool showAdvancedOptions = false;
-    private void ToggleAdvancedOptions() => showAdvancedOptions = !showAdvancedOptions;
-
-    protected override async Task OnInitializedAsync()
+    @if (!string.IsNullOrEmpty(statusMessage))
     {
-        if (IsEditMode)
-        {
-            loadedRole = await Http.GetFromJsonAsync<RoleDto>($"/api/roles/{RoleId}");
-            if (loadedRole == null)
-            {
-                statusMessage = "Role not found.";
-                return;
-            }
-            roleModel.Name = loadedRole.Name ?? string.Empty;
-            await LoadClaimsAsync();
-        }
-        // In create mode, roleClaims remains empty until user adds claims
+        <div class="alert alert-info mt-2">@statusMessage</div>
     }
 
-    private async Task LoadClaimsAsync()
-    {
-        if (loadedRole != null)
-        {
-            roleClaims = await Http.GetFromJsonAsync<List<ClaimDto>>($"/api/roles/{loadedRole.Id}/claims") ?? new();
-        }
-        StateHasChanged();
-    }
+    @code {
+        [Parameter] public string? RoleId { get; set; }
+        private RoleModel roleModel = new();
+        private string? statusMessage;
+        private bool IsEditMode => !string.IsNullOrEmpty(RoleId);
+        private RoleDto? loadedRole;
 
-    private Task AddClaimAsync()
-    {
-        if (string.IsNullOrWhiteSpace(newClaim.Type) || string.IsNullOrWhiteSpace(newClaim.Value))
-        {
-            statusMessage = "Claim type and value are required.";
-            return Task.CompletedTask;
-        }
-        // Prevent duplicate claims
-        if (roleClaims.Any(c => c.Type == newClaim.Type && c.Value == newClaim.Value))
-        {
-            statusMessage = "This claim already exists.";
-            return Task.CompletedTask;
-        }
-        roleClaims.Add(new ClaimDto { Type = newClaim.Type, Value = newClaim.Value });
-        newClaim = new();
-        statusMessage = "Claim added.";
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
+        // Claims management
+        private List<ClaimDto> roleClaims = new();
+        private ClaimDto newClaim = new();
 
-    private Task RemoveClaimAsync(ClaimDto claim)
-    {
-        roleClaims.Remove(claim);
-        statusMessage = "Claim removed.";
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
+        // Accordion state
+        private bool showAdvancedOptions = false;
+        private void ToggleAdvancedOptions() => showAdvancedOptions = !showAdvancedOptions;
 
-    private async Task HandleSubmit()
-    {
-        if (string.IsNullOrWhiteSpace(roleModel.Name))
+        private bool isAdmin = false;
+
+        protected override async Task OnInitializedAsync()
         {
-            statusMessage = "Role name cannot be empty.";
-            return;
-        }
-        if (IsEditMode)
-        {
-            if (loadedRole == null)
+            isAdmin = await AuthService.IsInRoleAsync("Admin");
+
+            if (IsEditMode)
             {
-                statusMessage = "Role not found.";
-                return;
-            }
-            loadedRole.Name = roleModel.Name;
-            var response = await Http.PutAsJsonAsync($"/api/roles/{loadedRole.Id}", loadedRole);
-            if (response.IsSuccessStatusCode)
-            {
-                // Sync claims: send all claims to API
-                await Http.PutAsJsonAsync($"/api/roles/{loadedRole.Id}/claims", roleClaims);
-                NavigationManager.NavigateTo("/account/roles");
-            }
-            else
-            {
-                statusMessage = await response.Content.ReadAsStringAsync();
-            }
-        }
-        else
-        {
-            var response = await Http.PostAsJsonAsync($"/api/roles", roleModel);
-            if (response.IsSuccessStatusCode)
-            {
-                var createdRole = await response.Content.ReadFromJsonAsync<RoleDto>();
-                if (createdRole != null)
+                loadedRole = await Http.GetFromJsonAsync<RoleDto>($"/api/roles/{RoleId}");
+                if (loadedRole == null)
                 {
-                    await Http.PutAsJsonAsync($"/api/roles/{createdRole.Id}/claims", roleClaims);
+                    statusMessage = "Role not found.";
+                    return;
                 }
-                NavigationManager.NavigateTo("/account/roles");
+                roleModel.Name = loadedRole.Name ?? string.Empty;
+                await LoadClaimsAsync();
+            }
+            // In create mode, roleClaims remains empty until user adds claims
+        }
+
+        private async Task LoadClaimsAsync()
+        {
+            if (loadedRole != null)
+            {
+                roleClaims = await Http.GetFromJsonAsync<List<ClaimDto>>($"/api/roles/{loadedRole.Id}/claims") ?? new();
+            }
+            StateHasChanged();
+        }
+
+        private Task AddClaimAsync()
+        {
+            if (string.IsNullOrWhiteSpace(newClaim.Type) || string.IsNullOrWhiteSpace(newClaim.Value))
+            {
+                statusMessage = "Claim type and value are required.";
+                return Task.CompletedTask;
+            }
+            // Prevent duplicate claims
+            if (roleClaims.Any(c => c.Type == newClaim.Type && c.Value == newClaim.Value))
+            {
+                statusMessage = "This claim already exists.";
+                return Task.CompletedTask;
+            }
+            roleClaims.Add(new ClaimDto { Type = newClaim.Type, Value = newClaim.Value });
+            newClaim = new();
+            statusMessage = "Claim added.";
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        private Task RemoveClaimAsync(ClaimDto claim)
+        {
+            roleClaims.Remove(claim);
+            statusMessage = "Claim removed.";
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        private async Task HandleSubmit()
+        {
+            if (string.IsNullOrWhiteSpace(roleModel.Name))
+            {
+                statusMessage = "Role name cannot be empty.";
+                return;
+            }
+            if (IsEditMode)
+            {
+                if (loadedRole == null)
+                {
+                    statusMessage = "Role not found.";
+                    return;
+                }
+                loadedRole.Name = roleModel.Name;
+                var response = await Http.PutAsJsonAsync($"/api/roles/{loadedRole.Id}", loadedRole);
+                if (response.IsSuccessStatusCode)
+                {
+                    // Sync claims: send all claims to API
+                    await Http.PutAsJsonAsync($"/api/roles/{loadedRole.Id}/claims", roleClaims);
+                    NavigationManager.NavigateTo("/account/roles");
+                }
+                else
+                {
+                    statusMessage = await response.Content.ReadAsStringAsync();
+                }
             }
             else
             {
-                statusMessage = await response.Content.ReadAsStringAsync();
+                var response = await Http.PostAsJsonAsync($"/api/roles", roleModel);
+                if (response.IsSuccessStatusCode)
+                {
+                    var createdRole = await response.Content.ReadFromJsonAsync<RoleDto>();
+                    if (createdRole != null)
+                    {
+                        await Http.PutAsJsonAsync($"/api/roles/{createdRole.Id}/claims", roleClaims);
+                    }
+                    NavigationManager.NavigateTo("/account/roles");
+                }
+                else
+                {
+                    statusMessage = await response.Content.ReadAsStringAsync();
+                }
             }
         }
-    }
 
-    public class RoleModel
-    {
-        [Required]
-        public string Name { get; set; } = string.Empty;
-    }
-    public class ClaimDto
-    {
-        public string Type { get; set; } = string.Empty;
-        public string Value { get; set; } = string.Empty;
-    }
-    public class RoleDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
+        public class RoleModel
+        {
+            [Required]
+            public string Name { get; set; } = string.Empty;
+        }
+        public class ClaimDto
+        {
+            public string Type { get; set; } = string.Empty;
+            public string Value { get; set; } = string.Empty;
+        }
+        public class RoleDto
+        {
+            public string Id { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+        }
     }
 }

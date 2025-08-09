@@ -2,26 +2,24 @@
 @page "/account/manage/{Section}"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
 @code {
     [Parameter]
     public string? Section { get; set; }
     private bool _navigatedToSection = false;
-
     private string activeSection = "profile";
     private bool isLoaded = false;
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Optionally, you can fetch user info from API if needed
-
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
         isLoaded = true;
     }
 
     protected override void OnParametersSet()
     {
-        // If no section is provided, navigate to the default section in the URL
         if (string.IsNullOrWhiteSpace(Section))
         {
             if (!_navigatedToSection)
@@ -39,7 +37,6 @@
 
     private void SetSection(string section)
     {
-        // Update the URL and the active section
         if (activeSection != section)
         {
             NavigationManager.NavigateTo($"/account/manage/{section}", forceLoad: false);
@@ -120,6 +117,10 @@
         @if (!isLoaded)
         {
             <p>Loading...</p>
+        }
+        else if (!isAuthenticated)
+        {
+            <p>You must be logged in to view this page.</p>
         }
         else if (activeSection == "profile")
         {

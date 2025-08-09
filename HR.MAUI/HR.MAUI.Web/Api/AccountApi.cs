@@ -1,4 +1,5 @@
 using HR.Services;
+using HR.Shared.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -6,7 +7,7 @@ using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using static HR.Components.Account.ExternalLogins;
+using static HR.MAUI.Shared.Components.Account.ExternalLogins;
 
 namespace HR.Api
 {

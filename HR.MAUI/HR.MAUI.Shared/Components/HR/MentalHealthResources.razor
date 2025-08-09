@@ -1,11 +1,9 @@
 @page "/hr/mental-health-resources"
 @using global::HR.Models
-@using global::HR.Data
 @using System.Text.Json
 @using System.Text
-@using Microsoft.JSInterop
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
+@inject IAlertService AlertService
 
 <div class="container-fluid">
     <div class="row">
@@ -39,7 +37,6 @@
                                     <th>Title</th>
                                     <th>Description</th>
                                     <th>Contact Info</th>
-                                    <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -65,7 +62,6 @@
                                                     @resource.ContactInfo
                                                 </div>
                                             </td>
-                                            <td>@resource.CreatedAt.ToString("yyyy-MM-dd")</td>
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <button class="btn btn-sm btn-outline-info" @onclick="() => ShowViewModal(resource)">
@@ -85,7 +81,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted">No mental health resources found</td>
+                                        <td colspan="4" class="text-center text-muted">No mental health resources found</td>
                                     </tr>
                                 }
                             </tbody>
@@ -165,10 +161,6 @@
                             <strong>Contact Information:</strong>
                             <p>@(viewResource.ContactInfo ?? "Not provided")</p>
                         </div>
-                        <div class="col-md-6">
-                            <strong>Created:</strong>
-                            <p>@viewResource.CreatedAt.ToString("yyyy-MM-dd")</p>
-                        </div>
                     </div>
                     <div class="row">
                         <div class="col-12">
@@ -188,11 +180,11 @@
 </div>
 
 @code {
-    private List<MentalHealthResource> resources = new();
-    private List<MentalHealthResource> filteredResources = new();
+    private List<MentalHealthResourceResponse> resources = new();
+    private List<MentalHealthResourceResponse> filteredResources = new();
     
-    private MentalHealthResource currentResource = new();
-    private MentalHealthResource? viewResource = null;
+    private MentalHealthResourceRequest currentResource = new();
+    private MentalHealthResourceResponse? viewResource = null;
     private bool showModal = false;
     private bool showViewModal = false;
     private bool isEditing = false;
@@ -212,14 +204,14 @@
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                resources = JsonSerializer.Deserialize<List<MentalHealthResource>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                resources = JsonSerializer.Deserialize<List<MentalHealthResourceResponse>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             }
 
             FilterResources();
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error loading data: {ex.Message}");
+            await AlertService.ShowAlert($"Error loading data: {ex.Message}", "Error");
         }
     }
 
@@ -230,7 +222,7 @@
             r.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
             (r.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
             (r.ContactInfo?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
-        ).OrderByDescending(r => r.CreatedAt).ToList();
+        ).OrderByDescending(r => r.MentalHealthResource_ID).ToList();
         
         StateHasChanged();
     }
@@ -243,16 +235,15 @@
 
     private void ShowCreateModal()
     {
-        currentResource = new MentalHealthResource();
+        currentResource = new MentalHealthResourceRequest();
         isEditing = false;
         showModal = true;
     }
 
-    private void ShowEditModal(MentalHealthResource resource)
+    private void ShowEditModal(MentalHealthResourceResponse resource)
     {
-        currentResource = new MentalHealthResource
+        currentResource = new MentalHealthResourceRequest
         {
-            MentalHealthResource_ID = resource.MentalHealthResource_ID,
             Title = resource.Title,
             Description = resource.Description,
             ContactInfo = resource.ContactInfo
@@ -261,7 +252,7 @@
         showModal = true;
     }
 
-    private void ShowViewModal(MentalHealthResource resource)
+    private void ShowViewModal(MentalHealthResourceResponse resource)
     {
         viewResource = resource;
         showViewModal = true;
@@ -287,9 +278,9 @@
             var content = new StringContent(json, Encoding.UTF8, "application/json");
             
             HttpResponseMessage response;
-            if (isEditing)
+            if (isEditing && viewResource != null)
             {
-                response = await Http.PutAsync($"/api/mentalhealthresources/{currentResource.MentalHealthResource_ID}", content);
+                response = await Http.PutAsync($"/api/mentalhealthresources/{viewResource.MentalHealthResource_ID}", content);
             }
             else
             {
@@ -300,22 +291,22 @@
             {
                 HideModal();
                 await LoadData();
-                await JSRuntime.InvokeVoidAsync("alert", $"Mental health resource {(isEditing ? "updated" : "created")} successfully!");
+                await AlertService.ShowAlert($"Mental health resource {(isEditing ? "updated" : "created")} successfully!", "Success");
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error {(isEditing ? "updating" : "creating")} resource.");
+                await AlertService.ShowAlert($"Error {(isEditing ? "updating" : "creating")} resource.", "Error");
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            await AlertService.ShowAlert($"Error: {ex.Message}", "Error");
         }
     }
 
     private async Task DeleteResource(int id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this mental health resource?"))
+        if (await AlertService.ShowConfirm("Are you sure you want to delete this mental health resource?", "Confirm Delete"))
         {
             try
             {
@@ -323,16 +314,16 @@
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadData();
-                    await JSRuntime.InvokeVoidAsync("alert", "Mental health resource deleted successfully!");
+                    await AlertService.ShowAlert("Mental health resource deleted successfully!", "Success");
                 }
                 else
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting resource.");
+                    await AlertService.ShowAlert("Error deleting resource.", "Error");
                 }
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+                await AlertService.ShowAlert($"Error: {ex.Message}", "Error");
             }
         }
     }

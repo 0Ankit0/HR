@@ -1,39 +1,53 @@
-@page "/account/resendemailconfirmation"
+@page "/account/resend-email-confirmation"
 @using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
-<h1>Resend email confirmation</h1>
-<h2>Enter your email.</h2>
-<hr />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="inputModel" OnValidSubmit="HandleResend">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="inputModel.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
-                <label class="form-label">Email</label>
-                <ValidationMessage For="@(() => inputModel.Email)" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
-        </EditForm>
-        @if (!string.IsNullOrEmpty(statusMessage))
-        {
-            <div class="alert alert-info mt-2">@statusMessage</div>
-        }
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to resend email confirmation.</p>
+}
+else
+{
+    <h1>Resend email confirmation</h1>
+    <h2>Enter your email.</h2>
+    <hr />
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm Model="inputModel" OnValidSubmit="HandleResend">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="inputModel.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
+                    <label class="form-label">Email</label>
+                    <ValidationMessage For="@(() => inputModel.Email)" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
+            </EditForm>
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert alert-info mt-2">@statusMessage</div>
+            }
+        </div>
     </div>
-</div>
+}
+
 @code {
     private InputModel inputModel = new();
     private string? statusMessage;
+    private bool isAuthenticated = false;
 
     public class InputModel
     {
         [Required]
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
     }
 
     private async Task HandleResend()

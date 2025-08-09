@@ -1,43 +1,57 @@
-@page "/account/confirmphone"  
-@inject HttpClient Http  
-@inject NavigationManager NavigationManager  
+@page "/account/confirm-phone"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
 
-<h1>Confirm Phone</h1>  
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to confirm your phone number.</p>
+}
+else
+{
+    <h1>Confirm Phone</h1>
 
-<p>Please enter the code sent to your phone:</p>  
-<div class="form-floating mb-3">
-    <InputText @bind-Value="code" class="form-control" autocomplete="000000" aria-required="true" placeholder="Please enter the Code." />
-    <label class="form-label">Enter Code</label>
-</div>
-<button @onclick="ConfirmCode" class="btn btn-lg btn-primary">Confirm</button>
+    <p>Please enter the code sent to your phone:</p>
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="code" class="form-control" autocomplete="000000" aria-required="true" placeholder="Please enter the Code." />
+        <label class="form-label">Enter Code</label>
+    </div>
+    <button @onclick="ConfirmCode" class="btn btn-lg btn-primary">Confirm</button>
 
-@if (!string.IsNullOrEmpty(statusMessage))  
-{  
-    <div class="alert alert-info">@statusMessage</div>  
-}  
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+}
 
-@code {  
-    private string code = string.Empty;  
-    private string? statusMessage;  
-    [Parameter,SupplyParameterFromQuery]
-    public string PhoneNo { get; set; } = string.Empty; 
+@code {
+    private string code = string.Empty;
+    private string? statusMessage;
+    private bool isAuthenticated = false;
+    [Parameter, SupplyParameterFromQuery]
+    public string PhoneNo { get; set; } = string.Empty;
 
-    private async Task ConfirmCode()  
-    {  
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+    }
+
+    private async Task ConfirmCode()
+    {
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(PhoneNo))
-        {  
-            statusMessage = "Please enter a code and phone number.";  
-            return;  
-        }  
+        {
+            statusMessage = "Please enter a code and phone number.";
+            return;
+        }
         var response = await Http.PostAsJsonAsync("/api/user/confirmphone", new { PhoneNumber = PhoneNo, Code = code });
-        if (response.IsSuccessStatusCode)  
-        {  
-            statusMessage = "Phone number confirmed successfully.";  
-            NavigationManager.NavigateTo("/account/manage/profile");  
-        }  
-        else  
-        {  
-            statusMessage = await response.Content.ReadAsStringAsync();  
-        }  
-    }  
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Phone number confirmed successfully.";
+            NavigationManager.NavigateTo("/account/manage/profile");
+        }
+        else
+        {
+            statusMessage = await response.Content.ReadAsStringAsync();
+        }
+    }
 }

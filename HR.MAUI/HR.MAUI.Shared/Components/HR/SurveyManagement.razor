@@ -1,6 +1,5 @@
 @page "/hr/survey-management"
 @using global::HR.Models
-@using global::HR.Data
 @using System.Text.Json
 @using System.Text
 @using Microsoft.JSInterop
@@ -42,7 +41,6 @@
                                     <th>Title</th>
                                     <th>Description</th>
                                     <th>Date Created</th>
-                                    <th>Created By</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -63,8 +61,7 @@
                                                     @survey.Description
                                                 </div>
                                             </td>
-                                            private DateTime DateCreated { get; set; }
-                                            <td>@(survey.CreatedBy ?? "System")</td>
+                                            <td>@survey.DateCreated.ToString("yyyy-MM-dd")</td>
                                             <td>
                                                 <div class="btn-group" role="group">
                                                     <button class="btn btn-sm btn-outline-info" @onclick="() => ShowViewModal(survey)">
@@ -84,7 +81,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted">No surveys found</td>
+                                        <td colspan="4" class="text-center text-muted">No surveys found</td>
                                     </tr>
                                 }
                             </tbody>
@@ -122,13 +119,6 @@
                                 <label class="form-label">Date Created *</label>
                                 <InputDate class="form-control" @bind-Value="currentSurvey.DateCreated" required />
                                 <ValidationMessage For="@(() => currentSurvey.DateCreated)" class="text-danger" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Created By</label>
-                                <InputText class="form-control" @bind-Value="currentSurvey.CreatedBy" placeholder="Creator name..." />
-                                <ValidationMessage For="@(() => currentSurvey.CreatedBy)" class="text-danger" />
                             </div>
                         </div>
                     </div>
@@ -171,10 +161,6 @@
                             <strong>Date Created:</strong>
                             <p>@viewSurvey.DateCreated.ToString("yyyy-MM-dd")</p>
                         </div>
-                        <div class="col-md-6">
-                            <strong>Created By:</strong>
-                            <p>@(viewSurvey.CreatedBy ?? "System")</p>
-                        </div>
                     </div>
                     <div class="row">
                         <div class="col-12">
@@ -200,11 +186,11 @@
 </div>
 
 @code {
-    private List<Survey> surveys = new();
-    private List<Survey> filteredSurveys = new();
+    private List<SurveyResponse> surveys = new();
+    private List<SurveyResponse> filteredSurveys = new();
     
-    private Survey currentSurvey = new();
-    private Survey? viewSurvey = null;
+    private SurveyRequest currentSurvey = new();
+    private SurveyResponse? viewSurvey = null;
     private bool showModal = false;
     private bool showViewModal = false;
     private bool isEditing = false;
@@ -225,7 +211,7 @@
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
-                surveys = JsonSerializer.Deserialize<List<Survey>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                surveys = JsonSerializer.Deserialize<List<SurveyResponse>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             }
 
             FilterSurveys();
@@ -241,8 +227,7 @@
         filteredSurveys = surveys.Where(s =>
             (string.IsNullOrEmpty(searchTerm) || 
              s.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-             (s.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-             (s.CreatedBy?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+             (s.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
             (!selectedDateFilter.HasValue || s.DateCreated.Date == selectedDateFilter.Value.Date)
         ).OrderByDescending(s => s.DateCreated).ToList();
         
@@ -258,7 +243,7 @@
 
     private void ShowCreateModal()
     {
-        currentSurvey = new Survey
+        currentSurvey = new SurveyRequest
         {
             DateCreated = DateTime.Today
         };
@@ -266,22 +251,20 @@
         showModal = true;
     }
 
-    private void ShowEditModal(Survey survey)
+    private void ShowEditModal(SurveyResponse survey)
     {
-        currentSurvey = new Survey
+        currentSurvey = new SurveyRequest
         {
-            Survey_ID = survey.Survey_ID,
             Title = survey.Title,
             Description = survey.Description,
-            DateCreated = survey.DateCreated,
-            CreatedBy = survey.CreatedBy
+            DateCreated = survey.DateCreated
         };
         isEditing = true;
         showModal = true;
         showViewModal = false; // Close view modal if open
     }
 
-    private void ShowViewModal(Survey survey)
+    private void ShowViewModal(SurveyResponse survey)
     {
         viewSurvey = survey;
         showViewModal = true;
@@ -305,11 +288,10 @@
         {
             var json = JsonSerializer.Serialize(currentSurvey);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
             HttpResponseMessage response;
-            if (isEditing)
+            if (isEditing && viewSurvey != null)
             {
-                response = await Http.PutAsync($"/api/feedback/surveys/{currentSurvey.Survey_ID}", content);
+                response = await Http.PutAsync($"/api/feedback/surveys/{viewSurvey.Survey_ID}", content);
             }
             else
             {

@@ -29,13 +29,6 @@
         // Try to get the current Activity ID, fallback to a generated GUID if not available
         RequestId = Activity.Current?.Id;
 
-        // Try to get HttpContext.TraceIdentifier if available (server-side Blazor)
-        if (string.IsNullOrEmpty(RequestId))
-        {
-            var httpContextAccessor = ServiceProvider.GetService(typeof(Microsoft.AspNetCore.Http.IHttpContextAccessor)) as Microsoft.AspNetCore.Http.IHttpContextAccessor;
-            RequestId = httpContextAccessor?.HttpContext?.TraceIdentifier;
-        }
-
         // Fallback to a random GUID if nothing else is available
         if (string.IsNullOrEmpty(RequestId))
         {

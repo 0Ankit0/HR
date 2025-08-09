@@ -1,18 +1,24 @@
-@page "/account/confirmemailchange"
-@using System.Text
-@using Microsoft.AspNetCore.WebUtilities
+@page "/account/confirm-email-change"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
+@inject IAuthService AuthService
 
 <h1>Confirm email change</h1>
 
-@if (isLoading)
+@if (!isAuthenticated)
 {
-    <p>Loading...</p>
+    <p>You must be logged in to confirm your email change.</p>
 }
-else if (!string.IsNullOrEmpty(statusMessage))
+else
 {
-    <div class="alert alert-info">@statusMessage</div>
+    @if (isLoading)
+    {
+        <p>Loading...</p>
+    }
+    else if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
 }
 
 @code {
@@ -27,9 +33,17 @@ else if (!string.IsNullOrEmpty(statusMessage))
 
     private string? statusMessage;
     private bool isLoading = true;
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        if (!isAuthenticated)
+        {
+            return;
+        }
+
         if (string.IsNullOrEmpty(UserId) ||
             string.IsNullOrEmpty(Email) ||
             string.IsNullOrEmpty(Code))
@@ -40,7 +54,7 @@ else if (!string.IsNullOrEmpty(statusMessage))
 
         try
         {
-            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+            var decodedCode = DecodeBase64Url(Code);
             var response = await Http.PostAsJsonAsync($"api/user/confirm-email-change", new
             {
                 UserId,
@@ -62,5 +76,17 @@ else if (!string.IsNullOrEmpty(statusMessage))
             statusMessage = "Invalid confirmation link.";
         }
         isLoading = false;
+    }
+
+    private static string DecodeBase64Url(string input)
+    {
+        string s = input.Replace('-', '+').Replace('_', '/');
+        switch (s.Length % 4)
+        {
+            case 2: s += "=="; break;
+            case 3: s += "="; break;
+        }
+        var bytes = Convert.FromBase64String(s);
+        return System.Text.Encoding.UTF8.GetString(bytes);
     }
 }

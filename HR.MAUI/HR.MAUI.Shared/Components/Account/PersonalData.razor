@@ -1,23 +1,38 @@
-@page "/account/personaldata"
+@page "/account/personal-data"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
 <h1>Personal Data</h1>
-<p>Your email: @userEmail</p>
-<button class="btn btn-danger" @onclick="DeletePersonalData">Delete Personal Data</button>
-@if (!string.IsNullOrEmpty(statusMessage))
+@if (!isAuthenticated)
 {
-    <div class="alert alert-info mt-2">@statusMessage</div>
+    <p>You must be logged in to view your personal data.</p>
 }
+else
+{
+    <p>Your email: @userEmail</p>
+    <button class="btn btn-danger" @onclick="DeletePersonalData">Delete Personal Data</button>
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info mt-2">@statusMessage</div>
+    }
+}
+
 @code {
     private string? userEmail;
     private string? statusMessage;
+    private bool isAuthenticated = false;
+
     protected override async Task OnInitializedAsync()
     {
-        var result = await Http.GetFromJsonAsync<PersonalDataDto>("/api/account/personaldata");
-        userEmail = result?.Email;
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (isAuthenticated)
+        {
+            var result = await Http.GetFromJsonAsync<PersonalDataDto>("/api/account/personaldata");
+            userEmail = result?.Email;
+        }
     }
+
     private async Task DeletePersonalData()
     {
         var response = await Http.DeleteAsync("/api/account/personaldata");
@@ -31,6 +46,7 @@
             statusMessage = await response.Content.ReadAsStringAsync();
         }
     }
+
     public class PersonalDataDto
     {
         public string Email { get; set; } = string.Empty;

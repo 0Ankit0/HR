@@ -1,6 +1,5 @@
 @page "/hr/employee-project-assignments"
 @using global::HR.Models
-@using global::HR.Data
 @using System.Text.Json
 @using System.Text
 @inject HttpClient Http
@@ -180,12 +179,12 @@
 </div>
 
 @code {
-    private List<Employee_Project> assignments = new();
-    private List<Employee_Project> filteredAssignments = new();
-    private List<global::HR.Models.Employee> employees = new();
-    private List<Project> projects = new();
+    private List<EmployeeProjectResponse> assignments = new();
+    private List<EmployeeProjectResponse> filteredAssignments = new();
+    private List<Employee> employees = new();
+    private List<ProjectResponse> projects = new();
     
-    private Employee_Project currentAssignment = new();
+    private EmployeeProjectResponse currentAssignment = new();
     private bool showModal = false;
     private bool isEditing = false;
     
@@ -206,21 +205,21 @@
             if (assignmentsResponse.IsSuccessStatusCode)
             {
                 var assignmentsJson = await assignmentsResponse.Content.ReadAsStringAsync();
-                assignments = JsonSerializer.Deserialize<List<Employee_Project>>(assignmentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                assignments = JsonSerializer.Deserialize<List<EmployeeProjectResponse>>(assignmentsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             }
 
             var employeesResponse = await Http.GetAsync("/api/employees");
             if (employeesResponse.IsSuccessStatusCode)
             {
                 var employeesJson = await employeesResponse.Content.ReadAsStringAsync();
-                employees = JsonSerializer.Deserialize<List<global::HR.Models.Employee>>(employeesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                employees = JsonSerializer.Deserialize<List<Employee>>(employeesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             }
 
             var projectsResponse = await Http.GetAsync("/api/projects");
             if (projectsResponse.IsSuccessStatusCode)
             {
                 var projectsJson = await projectsResponse.Content.ReadAsStringAsync();
-                projects = JsonSerializer.Deserialize<List<Project>>(projectsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+                projects = JsonSerializer.Deserialize<List<ProjectResponse>>(projectsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
             }
 
             FilterAssignments();
@@ -255,7 +254,7 @@
 
     private void ShowCreateModal()
     {
-        currentAssignment = new Employee_Project
+        currentAssignment = new EmployeeProjectResponse
         {
             Assignment_Date = DateTime.Today
         };
@@ -263,9 +262,9 @@
         showModal = true;
     }
 
-    private void ShowEditModal(Employee_Project assignment)
+    private void ShowEditModal(EmployeeProjectResponse assignment)
     {
-        currentAssignment = new Employee_Project
+        currentAssignment = new EmployeeProjectResponse
         {
             Employee_Project_ID = assignment.Employee_Project_ID,
             Employee_ID = assignment.Employee_ID,
@@ -289,7 +288,6 @@
         {
             var json = JsonSerializer.Serialize(currentAssignment);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            
             HttpResponseMessage response;
             if (isEditing)
             {

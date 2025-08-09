@@ -1,9 +1,15 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿@page "/account/email"
+@using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
+
 <h3>Email</h3>
-@if (isLoaded)
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to manage your email.</p>
+}
+else if (isLoaded)
 {
     <div class="row">
         <div class="col-md-12">
@@ -54,15 +60,21 @@ else
     private bool isEmailConfirmed = false;
     private bool showChangeEmail = false;
     private EmailInputModel inputModel = new();
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
-        var email = await Http.GetFromJsonAsync<EmailDto>("/api/user/email");
-        if (email != null)
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        if (isAuthenticated)
         {
-            currentEmail = email.Email;
-            isEmailConfirmed = email.IsConfirmed;
-            isLoaded = true;
+            var email = await Http.GetFromJsonAsync<EmailDto>("/api/user/email");
+            if (email != null)
+            {
+                currentEmail = email.Email;
+                isEmailConfirmed = email.IsConfirmed;
+                isLoaded = true;
+            }
         }
     }
 

@@ -1,8 +1,8 @@
+@page "/account/enable-lockout"
 @using System.ComponentModel.DataAnnotations
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JS
-@using Microsoft.AspNetCore.Components.Authorization
+@inject IAuthService AuthService
 
 <div class="mb-3 d-flex align-items-center">
     <div class="flex-grow-1 position-relative">
@@ -15,7 +15,11 @@
     </button>
 </div>
 
-@if (showPasswordInput)
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to enable lockout.</p>
+}
+else if (showPasswordInput)
 {
     <div class="alert alert-warning" role="alert">
         <p>
@@ -54,9 +58,12 @@
     private string? statusMessage;
     private bool requirePassword;
     private bool showPasswordInput = false;
+    private bool isAuthenticated = false;
 
     protected override async Task OnInitializedAsync()
     {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
         var response = await Http.GetAsync("api/user/has-password");
         if (response.IsSuccessStatusCode)
         {

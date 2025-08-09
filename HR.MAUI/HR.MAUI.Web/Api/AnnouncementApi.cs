@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Routing;
 using HR.Data;
 using HR.Models;
 

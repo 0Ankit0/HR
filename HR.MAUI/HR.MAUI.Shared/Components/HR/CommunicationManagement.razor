@@ -1,10 +1,9 @@
 @page "/communication"
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
+@inject IAlertService AlertService
 @using global::HR.Models
 @using System.Text.Json
 @using System.Text
-@using Microsoft.JSInterop
 
 <div class="container-fluid">
     <!-- Header -->
@@ -441,7 +440,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error loading announcements: {ex.Message}");
+            await AlertService.ShowAlert($"Error loading announcements: {ex.Message}", "Error");
         }
         finally
         {
@@ -530,12 +529,12 @@
             if (isEditMode)
             {
                 await Http.PutAsJsonAsync($"/api/announcements/{currentAnnouncement.Announcement_ID}", currentAnnouncement);
-                await JSRuntime.InvokeVoidAsync("alert", "Announcement updated successfully!");
+                await AlertService.ShowAlert("Announcement updated successfully!", "Success");
             }
             else
             {
                 await Http.PostAsJsonAsync("/api/announcements", currentAnnouncement);
-                await JSRuntime.InvokeVoidAsync("alert", "Announcement created successfully!");
+                await AlertService.ShowAlert("Announcement created successfully!", "Success");
             }
             
             CloseModal();
@@ -543,30 +542,30 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error saving announcement: {ex.Message}");
+            await AlertService.ShowAlert($"Error saving announcement: {ex.Message}", "Error");
         }
     }
 
     private async Task DeleteAnnouncement(AnnouncementResponse announcement)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the announcement '{announcement.Title}'?"))
+        if (await AlertService.ShowConfirm($"Are you sure you want to delete the announcement '{announcement.Title}'?"))
         {
             try
             {
                 await Http.DeleteAsync($"/api/announcements/{announcement.Announcement_ID}");
-                await JSRuntime.InvokeVoidAsync("alert", "Announcement deleted successfully!");
+                await AlertService.ShowAlert("Announcement deleted successfully!", "Success");
                 await LoadData();
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error deleting announcement: {ex.Message}");
+                await AlertService.ShowAlert($"Error deleting announcement: {ex.Message}", "Error");
             }
         }
     }
 
     private async Task ViewStats(AnnouncementResponse announcement)
     {
-        await JSRuntime.InvokeVoidAsync("alert", $"Announcement Stats:\n\nTitle: {announcement.Title}\nViews: {announcement.ViewCount}\nCreated: {announcement.DateCreated?.ToString("MMM dd, yyyy")}\nAuthor: {announcement.AuthorName}");
+        await AlertService.ShowAlert($"Announcement Stats:\n\nTitle: {announcement.Title}\nViews: {announcement.ViewCount}\nCreated: {announcement.DateCreated?.ToString("MMM dd, yyyy")}\nAuthor: {announcement.AuthorName}", "Announcement Stats");
     }
 
     private string GetPriorityBadgeClass(string priority)
@@ -605,8 +604,11 @@
         public string Status { get; set; } = "";
         public DateTime? PublishDate { get; set; }
         public DateTime? ExpiryDate { get; set; }
+        public DateTime DatePosted { get; set; }
         public DateTime? DateCreated { get; set; }
+        public string? CreatedBy { get; set; }
         public string? AuthorName { get; set; }
+        public DateTime CreatedAt { get; set; }
         public int ViewCount { get; set; }
         public bool IsPinned { get; set; }
     }

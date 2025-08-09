@@ -3,11 +3,15 @@
 @using System.Security.Claims
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize(Roles = "Admin")]
+@inject IAuthService AuthService
 
 <h1 class="display-6 mb-4">User Management</h1>
 
-@if (!string.IsNullOrEmpty(statusMessage))
+@if (!isAdmin)
+{
+    <p>You do not have permission to view this page.</p>
+}
+else if (!string.IsNullOrEmpty(statusMessage))
 {
     <div class="alert alert-info alert-dismissible fade show" role="alert">
         @statusMessage
@@ -21,7 +25,7 @@
         <span class="ms-2">Loading users...</span>
     </div>
 }
-else
+else if (isAdmin)
 {
     <div class="card shadow-sm">
         <div class="card-body p-0">
@@ -227,13 +231,8 @@ else
     private List<UserDto> users = new();
     private Dictionary<string, List<string>> userRoles = new();
     private string? statusMessage;
-    private string? showDeleteConfirmId;
-    private UserDto? userToDelete;
-
-    private string? showResetPasswordId;
-    private UserDto? userToReset;
-    private string newPassword = string.Empty;
     private bool isLoading = true;
+    private bool isAdmin = false;
 
     // Claims management
     private string? showManageClaimsId;
@@ -241,21 +240,36 @@ else
     private List<ClaimDto> userClaims = new();
     private ClaimDto newUserClaim = new();
 
+    // Fix: Add missing fields for delete/reset password modals
+    private string? showDeleteConfirmId;
+    private UserDto? userToDelete;
+    private string? showResetPasswordId;
+    private UserDto? userToReset;
+    private string newPassword = string.Empty;
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadUsers();
+        isAdmin = await AuthService.IsInRoleAsync("Admin");
+        if (isAdmin)
+        {
+            var result = await Http.GetFromJsonAsync<UserListResult>("/api/users");
+            if (result != null)
+            {
+                users = result.Users;
+                userRoles = result.UserRoles;
+            }
+        }
+        isLoading = false;
     }
 
     private async Task LoadUsers()
     {
-        isLoading = true;
         var result = await Http.GetFromJsonAsync<UserListResult>("/api/users");
         if (result != null)
         {
-            users = result.users;
-            userRoles = result.userRoles;
+            users = result.Users;
+            userRoles = result.UserRoles;
         }
-        isLoading = false;
     }
 
     private void ConfirmDelete(UserDto user)
@@ -394,8 +408,8 @@ else
     }
     public class UserListResult
     {
-        public List<UserDto> users { get; set; } = new();
-        public Dictionary<string, List<string>> userRoles { get; set; } = new();
+        public List<UserDto> Users { get; set; } = new();
+        public Dictionary<string, List<string>> UserRoles { get; set; } = new();
     }
     public class ClaimDto
     {

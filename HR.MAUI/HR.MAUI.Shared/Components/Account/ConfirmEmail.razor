@@ -1,12 +1,16 @@
-@page "/account/confirmemail"
+@page "/account/confirm-email"
 @using System.Text
-@using Microsoft.AspNetCore.WebUtilities
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
+@inject IAuthService AuthService
 
 <h1>Confirm email</h1>
 
-@if (isLoading)
+@if (!isAuthenticated)
+{
+    <p>You must be logged in to confirm your email.</p>
+}
+else if (isLoading)
 {
     <p>Loading...</p>
 }
@@ -15,6 +19,8 @@ else if (!string.IsNullOrEmpty(statusMessage))
     <div class="alert alert-info">@statusMessage</div>
 }
 @code {
+    private bool isAuthenticated = false;
+
     [Parameter, SupplyParameterFromQuery]
     public string? UserId { get; set; }
 
@@ -27,29 +33,47 @@ else if (!string.IsNullOrEmpty(statusMessage))
 
     protected override async Task OnInitializedAsync()
     {
-      
-        try
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        if (isAuthenticated)
         {
-            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code!));
-            var response = await Http.PostAsJsonAsync($"api/user/confirm-email", new {
-                UserId = UserId,
-                Code = decodedCode
-            });
-            if (response.IsSuccessStatusCode)
+            try
             {
-                statusMessage = "Thank you for confirming your email.";
+                var decodedCode = DecodeBase64Url(Code!);
+                var response = await Http.PostAsJsonAsync($"api/user/confirm-email", new {
+                    UserId = UserId,
+                    Code = decodedCode
+                });
+                if (response.IsSuccessStatusCode)
+                {
+                    statusMessage = "Thank you for confirming your email.";
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    statusMessage = $"Error: {error}";
+                }
             }
-            else
+            catch
             {
-                var error = await response.Content.ReadAsStringAsync();
-                statusMessage = $"Error: {error}";
+                statusMessage = "Invalid confirmation link.";
             }
         }
-        catch
-        {
-            statusMessage = "Invalid confirmation link.";
-        }
+
         isLoading = false;
+    }
+
+    private static string DecodeBase64Url(string input)
+    {
+        // Replace URL-safe chars and pad with '='
+        string s = input.Replace('-', '+').Replace('_', '/');
+        switch (s.Length % 4)
+        {
+            case 2: s += "=="; break;
+            case 3: s += "="; break;
+        }
+        var bytes = Convert.FromBase64String(s);
+        return Encoding.UTF8.GetString(bytes);
     }
 
     protected override void OnAfterRender(bool firstRender)

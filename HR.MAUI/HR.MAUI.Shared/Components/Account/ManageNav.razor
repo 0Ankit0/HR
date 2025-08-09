@@ -1,5 +1,4 @@
-@using Microsoft.AspNetCore.Components.Authorization
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IAuthService AuthService
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 
@@ -61,20 +60,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
     }
     private async Task LogoutAsync()
     {
         NavigationManager.NavigateTo("/api/account/logout",forceLoad:true);
-        // var response = await Http.PostAsync(NavigationManager.BaseUri+"api/account/logout", null);
-        // if (response.IsSuccessStatusCode)
-        // {
-        //     NavigationManager.NavigateTo("/account/login", forceLoad: true);
-        // }
-        // else
-        // {
-        //     Optionally handle error
-        // }
     }
 }

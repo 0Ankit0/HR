@@ -2,9 +2,8 @@
 @using global::HR.Models
 @using System.Text.Json
 @using System.Text
-@using Microsoft.JSInterop
 @inject HttpClient Http
-@inject IJSRuntime JSRuntime
+@inject IAlertService AlertService
 
 <div class="container-fluid">
     <div class="row">
@@ -271,7 +270,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error loading data: {ex.Message}");
+            await AlertService.ShowAlert($"Error loading data: {ex.Message}");
         }
     }
 
@@ -361,22 +360,22 @@
             {
                 HideModal();
                 await LoadData();
-                await JSRuntime.InvokeVoidAsync("alert", $"Feedback {(isEditing ? "updated" : "created")} successfully!");
+                await AlertService.ShowAlert($"Feedback {(isEditing ? "updated" : "created")} successfully!");
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error {(isEditing ? "updating" : "creating")} feedback.");
+                await AlertService.ShowAlert($"Error {(isEditing ? "updating" : "creating")} feedback.");
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            await AlertService.ShowAlert($"Error: {ex.Message}");
         }
     }
 
     private async Task DeleteFeedback(int id)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this feedback?"))
+        if (await AlertService.ShowConfirm("Are you sure you want to delete this feedback?"))
         {
             try
             {
@@ -384,16 +383,16 @@
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadData();
-                    await JSRuntime.InvokeVoidAsync("alert", "Feedback deleted successfully!");
+                    await AlertService.ShowAlert("Feedback deleted successfully!");
                 }
                 else
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "Error deleting feedback.");
+                    await AlertService.ShowAlert("Error deleting feedback.");
                 }
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+                await AlertService.ShowAlert($"Error: {ex.Message}");
             }
         }
     }

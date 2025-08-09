@@ -1,28 +1,40 @@
-@using Microsoft.AspNetCore.Identity
+@page "/account/download-personal-data"
 @using System.Text.Json
 @using System.Reflection
-@using Microsoft.AspNetCore.Components.Authorization
-@inject UserManager<IdentityUser> UserManager
-@inject ILogger<DownloadPersonalData> Logger
 @inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
 @inject IJSRuntime JS
 
 <h3>Personal Data</h3>
-<div class="mb-3 d-flex align-items-center">
-    <div class="flex-grow-1 position-relative">
-        <span class="form-control-plaintext text-body">Download a copy of your personal data stored with us.</span>
-    </div>
-    <button type="button" class="btn btn-outline-primary ms-2" @onclick="DownloadData">
-        Download
-    </button>
-</div>
-@if (!string.IsNullOrEmpty(statusMessage))
+@if (!isAuthenticated)
 {
-    <div class="alert alert-info mt-2">@statusMessage</div>
+    <p>You must be logged in to download your personal data.</p>
+}
+else
+{
+    <div class="mb-3 d-flex align-items-center">
+        <div class="flex-grow-1 position-relative">
+            <span class="form-control-plaintext text-body">Download a copy of your personal data stored with us.</span>
+        </div>
+        <button type="button" class="btn btn-outline-primary ms-2" @onclick="DownloadData">
+            Download
+        </button>
+    </div>
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info mt-2">@statusMessage</div>
+    }
 }
 
 @code {
     private string? statusMessage;
+    private bool isAuthenticated = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+    }
 
     private async Task DownloadData()
     {

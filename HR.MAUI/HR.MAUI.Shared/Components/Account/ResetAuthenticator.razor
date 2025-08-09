@@ -1,30 +1,40 @@
-@page "/account/resetauthenticator"
-@using Microsoft.AspNetCore.Components.Authorization
+@page "/account/reset-authenticator"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
-@attribute [Authorize]
+@inject IAuthService AuthService
 
-<button class="btn btn-link mb-3" type="button" @onclick="NavigateBack">
-    <i class="bi bi-arrow-left"></i> Back
-</button>
-@if (!string.IsNullOrEmpty(statusMessage))
+@if (!isAuthenticated)
 {
-    <div class="alert alert-info">@statusMessage</div>
+    <p>You must be logged in to reset your authenticator.</p>
 }
+else
+{
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+}
+
 @code {
+    private bool isAuthenticated = false;
     private string? statusMessage;
     protected override async Task OnInitializedAsync()
     {
-        statusMessage = null;
-       
-        var response = await Http.PostAsync($"/api/2fa/reset-authenticator", null);
-        if (response.IsSuccessStatusCode)
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+        if (isAuthenticated)
         {
-            statusMessage = "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.";
-        }
-        else
-        {
-            statusMessage = await response.Content.ReadAsStringAsync();
+            statusMessage = null;
+
+            var response = await Http.PostAsync($"/api/2fa/reset-authenticator", null);
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.";
+            }
+            else
+            {
+                statusMessage = await response.Content.ReadAsStringAsync();
+            }
         }
     }
     private void NavigateBack()
