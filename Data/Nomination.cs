@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Nomination
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Nomination_ID { get; set; }
         [ForeignKey(nameof(Employee))]
         public int Employee_ID { get; set; }

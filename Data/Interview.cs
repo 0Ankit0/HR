@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Interview
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Interview_ID { get; set; }
         [ForeignKey(nameof(Application))]
         public int Application_ID { get; set; }

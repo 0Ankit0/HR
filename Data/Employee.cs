@@ -7,7 +7,7 @@ namespace HR.Data
 {
     public class Employee
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Employee_ID { get; set; }
         [Required]
         public string Name { get; set; } = string.Empty;

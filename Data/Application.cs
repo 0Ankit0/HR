@@ -7,6 +7,7 @@ namespace HR.Data
     public class Application
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Application_ID { get; set; }
         [ForeignKey(nameof(JobPosting))]
         public int JobPosting_ID { get; set; }

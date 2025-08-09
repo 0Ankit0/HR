@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Incident
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Incident_ID { get; set; }
         [ForeignKey(nameof(Employee))]
         public int? Employee_ID { get; set; }

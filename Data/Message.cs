@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Message
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Message_ID { get; set; }
         [ForeignKey(nameof(Sender))]
         public int Sender_ID { get; set; }

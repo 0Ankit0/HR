@@ -1,11 +1,12 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Data
 {
     public class Policy
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Policy_ID { get; set; }
         public string Title { get; set; } = string.Empty;
         public string PolicyNumber { get; set; } = string.Empty;

@@ -1,11 +1,12 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Data
 {
     public class WellnessProgram
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int WellnessProgram_ID { get; set; }
         public string ProgramName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;

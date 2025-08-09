@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Benefit
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Benefit_ID { get; set; }
         [Required]
         public string BenefitType { get; set; } = string.Empty;

@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Department
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Department_ID { get; set; }
         [Required]
         public string Department_Name { get; set; } = string.Empty;

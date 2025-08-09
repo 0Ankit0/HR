@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Attendance
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Attendance_ID { get; set; }
         [ForeignKey(nameof(Employee))]
         public int Employee_ID { get; set; } // FK to Employee

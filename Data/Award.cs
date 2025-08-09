@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Award
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Award_ID { get; set; }
         [Required]
         public string Title { get; set; } = string.Empty;

@@ -1,10 +1,13 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Data
 {
     public class Employee_Training
     {
+        [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Employee_Training_ID { get; set; }
         [ForeignKey(nameof(Employee))]
         public int Employee_ID { get; set; }

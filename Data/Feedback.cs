@@ -6,7 +6,7 @@ namespace HR.Data
 {
     public class Feedback
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Feedback_ID { get; set; }
         [ForeignKey(nameof(Employee))]
         public int Employee_ID { get; set; }

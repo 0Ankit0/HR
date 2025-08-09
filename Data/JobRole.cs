@@ -5,7 +5,7 @@ namespace HR.Data
 {
     public class JobRole
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int JobRole_ID { get; set; }
         [Required]
         public string Role_Name { get; set; } = string.Empty;

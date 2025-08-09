@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HR.Data
 {
     public class Project
     {
-        [Key]
+        [Key] [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Project_ID { get; set; }
         public string Project_Name { get; set; } = string.Empty;
         public DateTime Deadline { get; set; }
