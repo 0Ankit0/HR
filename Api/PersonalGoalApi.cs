@@ -44,7 +44,7 @@ namespace HR.Api
                 {
                     Employee_ID = reqModel.Employee_ID,
                     Goal = reqModel.Goal,
-                    TargetDate = reqModel.EndDate,
+                    TargetDate = (DateTime)reqModel.EndDate,
                     IsAchieved = false
                 };
                 db.PersonalGoals.Add(goal);
@@ -65,7 +65,7 @@ namespace HR.Api
                 if (goal is null) return Results.NotFound();
                 goal.Employee_ID = reqModel.Employee_ID;
                 goal.Goal = reqModel.Goal;
-                goal.TargetDate = reqModel.EndDate;
+                goal.TargetDate = reqModel.EndDate ?? DateTime.MinValue;
                 await db.SaveChangesAsync();
                 return Results.Ok(new PersonalGoalResponse
                 {

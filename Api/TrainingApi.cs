@@ -28,9 +28,9 @@ namespace HR.Api
                 {
                     // Default filtering logic based on dates since status not in current model
                     var now = DateTime.UtcNow;
-                    if (status.Equals("scheduled", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(status, "scheduled", StringComparison.OrdinalIgnoreCase))
                         query = query.Where(t => t.Date > now);
-                    else if (status.Equals("completed", StringComparison.OrdinalIgnoreCase))
+                    else if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
                         query = query.Where(t => t.Date < now);
                 }
 

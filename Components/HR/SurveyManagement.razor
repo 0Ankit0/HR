@@ -27,7 +27,7 @@
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <input type="date" class="form-control" @bind="selectedDateFilter" @bind:after="FilterSurveys" placeholder="Filter by date" />
+                            <InputDate class="form-control" @bind-Value="selectedDateFilter" @bind-Value:event="oninput" />
                         </div>
                         <div class="col-md-4">
                             <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
@@ -63,7 +63,7 @@
                                                     @survey.Description
                                                 </div>
                                             </td>
-                                            <td>@survey.DateCreated.ToString("yyyy-MM-dd")</td>
+                                            private DateTime DateCreated { get; set; }
                                             <td>@(survey.CreatedBy ?? "System")</td>
                                             <td>
                                                 <div class="btn-group" role="group">
@@ -210,7 +210,7 @@
     private bool isEditing = false;
     
     private string searchTerm = "";
-    private string selectedDateFilter = "";
+    private DateTime? selectedDateFilter;
 
     protected override async Task OnInitializedAsync()
     {
@@ -243,7 +243,7 @@
              s.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
              (s.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
              (s.CreatedBy?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false)) &&
-            (string.IsNullOrEmpty(selectedDateFilter) || s.DateCreated.Date == DateTime.Parse(selectedDateFilter).Date)
+            (!selectedDateFilter.HasValue || s.DateCreated.Date == selectedDateFilter.Value.Date)
         ).OrderByDescending(s => s.DateCreated).ToList();
         
         StateHasChanged();
@@ -252,7 +252,7 @@
     private void ClearFilters()
     {
         searchTerm = "";
-        selectedDateFilter = "";
+        selectedDateFilter = null;
         FilterSurveys();
     }
 

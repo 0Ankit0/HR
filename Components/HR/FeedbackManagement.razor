@@ -35,7 +35,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <input type="date" class="form-control" @bind="selectedDateFilter" @bind:after="FilterFeedback" />
+                            <InputDate class="form-control" @bind-Value="selectedDateFilter" @bind-Value:event="oninput" />
                         </div>
                         <div class="col-md-2">
                             <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear Filters</button>
@@ -224,7 +224,7 @@
     
     private string searchTerm = "";
     private string selectedEmployeeFilter = "";
-    private string selectedDateFilter = "";
+    private DateTime? selectedDateFilter;
 
     public class ApiResponse
     {
@@ -283,7 +283,7 @@
              (f.GivenBy?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
              employees.Any(e => e.Employee_ID == f.Employee_ID && e.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) &&
             (string.IsNullOrEmpty(selectedEmployeeFilter) || f.Employee_ID.ToString() == selectedEmployeeFilter) &&
-            (string.IsNullOrEmpty(selectedDateFilter) || f.DateGiven.Date == DateTime.Parse(selectedDateFilter).Date)
+            (!selectedDateFilter.HasValue || f.DateGiven.Date == selectedDateFilter.Value.Date)
         ).OrderByDescending(f => f.DateGiven).ToList();
         
         StateHasChanged();
@@ -293,7 +293,7 @@
     {
         searchTerm = "";
         selectedEmployeeFilter = "";
-        selectedDateFilter = "";
+        selectedDateFilter = null;
         FilterFeedback();
     }
 

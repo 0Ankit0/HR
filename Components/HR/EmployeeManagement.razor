@@ -3,6 +3,9 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
+@{
+    // Wrap problematic blocks with @{ ... } to avoid double quote issues
+}
 <div class="container-fluid">
     <!-- Header -->
     <div class="row mb-4">
@@ -14,7 +17,7 @@
                     </h1>
                     <p class="text-muted mb-0">Manage your workforce efficiently</p>
                 </div>
-                <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/employees/new')">
+                <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/employees/new")'>
                     <i class="bi bi-person-plus me-2"></i>Add Employee
                 </button>
             </div>
@@ -136,11 +139,11 @@
 
                                 <div class="d-grid gap-2 d-md-flex">
                                     <button class="btn btn-primary btn-sm flex-fill" 
-                                            @onclick="() => Navigation.NavigateTo($'/employees/{employee.Employee_ID}')">
+                                            @onclick='() => Navigation.NavigateTo($"/employees/{employee.Employee_ID}")'>
                                         <i class="bi bi-eye me-1"></i>View Profile
                                     </button>
                                     <button class="btn btn-outline-primary btn-sm flex-fill"
-                                            @onclick="() => Navigation.NavigateTo($'/employees/{employee.Employee_ID}/edit')">
+                                            @onclick="@(() => Navigation.NavigateTo($"/employees/{employee.Employee_ID}/edit"))">
                                         <i class="bi bi-pencil me-1"></i>Edit
                                     </button>
                                 </div>
@@ -156,7 +159,7 @@
                         <i class="bi bi-people text-muted" style="font-size: 4rem;"></i>
                         <h4 class="text-muted mt-3">No employees found</h4>
                         <p class="text-muted">Try adjusting your search criteria or add new employees.</p>
-                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/employees/new')">
+                        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/employees/new")'>
                             <i class="bi bi-person-plus me-2"></i>Add First Employee
                         </button>
                     </div>

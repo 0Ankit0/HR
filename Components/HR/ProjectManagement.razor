@@ -518,27 +518,27 @@
 
     private void OpenCreateModal()
     {
-        currentProject = new Project { Status = "Planning", Priority = "Medium", Progress = 0 };
+        currentProject = new ProjectRequest { Status = "Planning", Priority = "Medium", Progress = 0 };
         isEditMode = false;
         showModal = true;
     }
 
     private void EditProject(ProjectResponse project)
     {
-        currentProject = new Project
+        currentProject = new ProjectRequest
         {
             Project_ID = project.Project_ID,
             ProjectName = project.ProjectName,
-            Description = project.Description,
-            StartDate = project.StartDate,
-            EndDate = project.EndDate,
+            Description = project.Description ?? string.Empty,
+            StartDate = project.StartDate ?? DateTime.MinValue,
+            EndDate = project.EndDate ?? DateTime.MinValue,
             Status = project.Status,
             Priority = project.Priority,
             Budget = project.Budget,
             ActualCost = project.ActualCost,
             Progress = project.Progress,
             Manager_ID = project.Manager_ID,
-            Objectives = project.Objectives
+            Objectives = project.Objectives ?? string.Empty
         };
         isEditMode = true;
         showModal = true;

@@ -20,17 +20,17 @@
                     <!-- Filter Tabs -->
                     <ul class="nav nav-tabs mb-3">
                         <li class="nav-item">
-                            <button class="nav-link @(activeTab == "all" ? "active" : "")" @onclick="() => SetActiveTab(\"all\")">
+                            <button class="nav-link @(activeTab == "all" ? "active" : "")" @onclick='() => SetActiveTab("all")'>
                                 All Messages
                             </button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link @(activeTab == "unread" ? "active" : "")" @onclick="() => SetActiveTab(\"unread\")">
+                            <button class="nav-link @(activeTab == "unread" ? "active" : "")" @onclick='() => SetActiveTab("unread")'>
                                 Unread (@unreadCount)
                             </button>
                         </li>
                         <li class="nav-item">
-                            <button class="nav-link @(activeTab == "sent" ? "active" : "")" @onclick="() => SetActiveTab(\"sent\")">
+                            <button class="nav-link @(activeTab == "sent" ? "active" : "")" @onclick='() => SetActiveTab("sent")'>
                                 Sent Messages
                             </button>
                         </li>

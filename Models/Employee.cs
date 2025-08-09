@@ -11,6 +11,8 @@ namespace HR.Models
         public DateTime HireDate { get; set; }
         public int Department_ID { get; set; }
         public int? JobRole_ID { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
     }
 
     public class EmployeeRequest
@@ -23,6 +25,8 @@ namespace HR.Models
         public DateTime HireDate { get; set; } = DateTime.Now;
         public int Department_ID { get; set; }
         public int? JobRole_ID { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
     }
 
     public class EmployeeResponse
@@ -38,6 +42,8 @@ namespace HR.Models
         public string DepartmentName { get; set; } = string.Empty;
         public int? JobRole_ID { get; set; }
         public string JobRoleName { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
     }
 
     public class EmployeeWithDetailsResponse : EmployeeResponse

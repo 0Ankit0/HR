@@ -19,10 +19,10 @@
                     <p class="text-muted mb-0">Develop your workforce through comprehensive training programs</p>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary" @onclick="() => Navigation.NavigateTo('/training/catalog')">
+                    <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/training/catalog")'>
                         <i class="bi bi-collection me-2"></i>Training Catalog
                     </button>
-                    <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/training/new')">
+                    <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/training/new"))">
                         <i class="bi bi-plus-circle me-2"></i>Create Training
                     </button>
                 </div>
@@ -291,7 +291,7 @@
                         <i class="bi bi-book text-muted" style="font-size: 4rem;"></i>
                         <h4 class="text-muted mt-3">No trainings found</h4>
                         <p class="text-muted">Create your first training program to start developing your workforce.</p>
-                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/training/new')">
+                        <button class="btn btn-primary" @onclick="@(() => Navigation.NavigateTo("/training/new"))">
                             <i class="bi bi-plus-circle me-2"></i>Create Training
                         </button>
                     </div>

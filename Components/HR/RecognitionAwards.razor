@@ -36,8 +36,7 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <input type="date" class="form-control" @bind="selectedDateFilter"
-                                @bind:after="FilterAwards" placeholder="Filter by date" />
+                            <InputDate class="form-control" @bind-Value="selectedDateFilter" @bind-Value:event="oninput" />
                         </div>
                         <div class="col-md-2">
                             <button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Clear
@@ -158,7 +157,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Date Awarded *</label>
-                                <InputDate class="form-control" @bind-Value="currentAward.DateAwarded" required />
+                                public DateTime DateAwarded { get; set; }
                                 <ValidationMessage For="@(() => currentAward.DateAwarded)" class="text-danger" />
                             </div>
                         </div>
@@ -243,7 +242,7 @@
 
     private string searchTerm = "";
     private string selectedEmployeeFilter = "";
-    private string selectedDateFilter = "";
+    private DateTime? selectedDateFilter;
 
     public class ApiResponse
     {
@@ -304,13 +303,13 @@
     private void FilterAwards()
     {
         filteredAwards = awards.Where(a =>
-        (string.IsNullOrEmpty(searchTerm) ||
-        a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-        (a.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-        employees.Any(e => e.Employee_ID == a.Employee_ID && e.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
-        &&
-        (string.IsNullOrEmpty(selectedEmployeeFilter) || a.Employee_ID.ToString() == selectedEmployeeFilter) &&
-        (string.IsNullOrEmpty(selectedDateFilter) || a.DateAwarded.Date == DateTime.Parse(selectedDateFilter).Date)
+            (string.IsNullOrEmpty(searchTerm) ||
+            a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (a.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            employees.Any(e => e.Employee_ID == a.Employee_ID && e.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+            &&
+            (string.IsNullOrEmpty(selectedEmployeeFilter) || a.Employee_ID.ToString() == selectedEmployeeFilter) &&
+            (!selectedDateFilter.HasValue || a.DateAwarded.Date == selectedDateFilter.Value.Date)
         ).OrderByDescending(a => a.DateAwarded).ToList();
 
         StateHasChanged();
@@ -320,7 +319,7 @@
     {
         searchTerm = "";
         selectedEmployeeFilter = "";
-        selectedDateFilter = "";
+        selectedDateFilter = null;
         FilterAwards();
     }
 

@@ -18,10 +18,10 @@
                     <p class="text-muted mb-0">Track and manage employee performance evaluations</p>
                 </div>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/templates')">
+                    <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/performance-reviews/templates")'>
                         <i class="bi bi-file-earmark-text me-2"></i>Review Templates
                     </button>
-                    <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/new')">
+                    <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/performance-reviews/new")'>
                         <i class="bi bi-plus-circle me-2"></i>New Review
                     </button>
                 </div>
@@ -320,7 +320,7 @@
                         <i class="bi bi-star text-muted" style="font-size: 4rem;"></i>
                         <h4 class="text-muted mt-3">No performance reviews found</h4>
                         <p class="text-muted">Start creating performance reviews to track employee progress.</p>
-                        <button class="btn btn-primary" @onclick="() => Navigation.NavigateTo('/performance-reviews/new')">
+                        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/performance-reviews/new")'>
                             <i class="bi bi-plus-circle me-2"></i>Create First Review
                         </button>
                     </div>
@@ -348,21 +348,21 @@
                             </div>
                             <div class="col-md-3">
                                 <button class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                                        @onclick="() => Navigation.NavigateTo('/performance-reviews/360')">
+                                        @onclick='() => Navigation.NavigateTo("/performance-reviews/360")'>
                                     <i class="bi bi-people fs-4 mb-2"></i>
                                     360° Reviews
                                 </button>
                             </div>
                             <div class="col-md-3">
                                 <button class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                                        @onclick="() => Navigation.NavigateTo('/goals')">
+                                        @onclick='() => Navigation.NavigateTo("/goals")'>
                                     <i class="bi bi-target fs-4 mb-2"></i>
                                     Goal Setting
                                 </button>
                             </div>
                             <div class="col-md-3">
                                 <button class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center py-3"
-                                        @onclick="() => Navigation.NavigateTo('/feedback')">
+                                        @onclick="@(() => Navigation.NavigateTo("/feedback"))">
                                     <i class="bi bi-chat-square-text fs-4 mb-2"></i>
                                     Continuous Feedback
                                 </button>

@@ -413,7 +413,7 @@
             var response = await Http.GetAsync("/api/employees");
             if (response.IsSuccessStatusCode)
             {
-                employees = await response.Content.ReadFromJsonAsync<List<Employee>>() ?? new();
+                employees = await response.Content.ReadFromJsonAsync<List<global::HR.Models.Employee>>() ?? new();
             }
         }
         catch (Exception ex)

@@ -439,23 +439,23 @@
 
     private void OpenCreateModal()
     {
-        currentBenefit = new Benefit();
+        currentBenefit = new BenefitRequest();
         isEditMode = false;
         showModal = true;
     }
 
     private void EditBenefit(BenefitResponse benefit)
     {
-        currentBenefit = new Benefit
+        currentBenefit = new BenefitRequest
         {
             Benefit_ID = benefit.Benefit_ID,
             Employee_ID = benefit.Employee_ID,
             BenefitType = benefit.BenefitType,
             Provider = benefit.Provider,
             Cost = benefit.Cost,
-            StartDate = benefit.StartDate,
-            EndDate = benefit.EndDate,
-            Description = benefit.Description
+            StartDate = benefit.StartDate ?? DateTime.MinValue,
+            EndDate = benefit.EndDate ?? DateTime.MinValue,
+            Description = benefit.Description ?? string.Empty
         };
         isEditMode = true;
         showModal = true;
@@ -528,5 +528,4 @@
         public int Page { get; set; }
         public int PageSize { get; set; }
     }
-}
-            
+}            

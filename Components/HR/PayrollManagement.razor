@@ -120,7 +120,7 @@
             </select>
         </div>
         <div class="col-md-3">
-            <input type="month" class="form-control" @bind="selectedMonth" />
+            <InputDate class="form-control" @bind-Value="selectedMonth" @bind-Value:event="oninput" />
         </div>
         <div class="col-md-3">
             <div class="input-group">
@@ -375,7 +375,7 @@
     private string searchQuery = "";
     private string selectedEmployee = "";
     private string selectedPayPeriod = "";
-    private string selectedMonth = "";
+    private DateTime? selectedMonth;
     
     // Pagination
     private int currentPage = 1;
@@ -430,7 +430,7 @@
     {
         try
         {
-            employees = await Http.GetFromJsonAsync<List<Employee>>("/api/employees") ?? new();
+            employees = await Http.GetFromJsonAsync<List<EmployeeResponse>>("/api/employees") ?? new();
         }
         catch (Exception ex)
         {
@@ -441,10 +441,12 @@
     private void UpdatePagedData()
     {
         var filteredRecords = payrollRecords.AsQueryable();
-        
         if (!string.IsNullOrEmpty(selectedPayPeriod))
             filteredRecords = filteredRecords.Where(p => p.PayFrequency == selectedPayPeriod);
-            
+        if (selectedMonth.HasValue)
+        {
+            filteredRecords = filteredRecords.Where(p => p.PayPeriodStart.HasValue && p.PayPeriodStart.Value.Year == selectedMonth.Value.Year && p.PayPeriodStart.Value.Month == selectedMonth.Value.Month);
+        }
         pagedPayrollRecords = filteredRecords.ToList();
     }
 
@@ -473,19 +475,19 @@
 
     private void OpenCreateModal()
     {
-        currentPayroll = new Payroll();
+        currentPayroll = new PayrollRequest();
         isEditMode = false;
         showModal = true;
     }
 
     private void EditPayroll(PayrollResponse payroll)
     {
-        currentPayroll = new Payroll
+        currentPayroll = new PayrollRequest
         {
             Payroll_ID = payroll.Payroll_ID,
             Employee_ID = payroll.Employee_ID,
-            PayPeriodStart = payroll.PayPeriodStart,
-            PayPeriodEnd = payroll.PayPeriodEnd,
+            PayPeriodStart = payroll.PayPeriodStart ?? DateTime.MinValue,
+            PayPeriodEnd = payroll.PayPeriodEnd ?? DateTime.MinValue,
             HoursWorked = payroll.HoursWorked,
             HourlyRate = payroll.HourlyRate,
             OvertimeHours = payroll.OvertimeHours,

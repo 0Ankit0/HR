@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using HR.Data;
 using Microsoft.AspNetCore.Routing;
+// Use explicit alias for Data.Employee to avoid ambiguity
+using DataEmployee = HR.Data.Employee;
 using HR.Models;
 
 namespace HR.Api
@@ -79,7 +81,7 @@ namespace HR.Api
 
             endpoints.MapPost("/api/employees", async (EmployeeRequest reqModel, AuthDbContext db, HttpContext ctx) =>
             {
-                var employee = new Employee
+                var employee = new DataEmployee
                 {
                     Name = reqModel.Name,
                     Email = reqModel.Email,

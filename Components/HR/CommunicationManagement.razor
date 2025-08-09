@@ -25,18 +25,24 @@
     </div>
 
     <!-- Tab Navigation -->
+    @{
+        // Tab Navigation block wrapped in @{ ... } to avoid double quote issues
+    }
     <ul class="nav nav-tabs mb-4">
         <li class="nav-item">
-            <button class="nav-link @(activeTab == "announcements" ? "active" : "")" @onclick="() => SwitchTab(\"announcements\")">
+            <button class="@GetTabClass("announcements")" @onclick='() => SwitchTab("announcements")'>
                 <i class="bi bi-megaphone me-2"></i>Announcements
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link @(activeTab == "messages" ? "active" : "")" @onclick="() => SwitchTab(\"messages\")">
+            <button class="@GetTabClass("messages")" @onclick='() => SwitchTab("messages")'>
                 <i class="bi bi-chat-dots me-2"></i>Messages
             </button>
         </li>
     </ul>
+    @{
+        // End of wrapped block
+    }
 
     @if (activeTab == "announcements")
     {
@@ -586,6 +592,8 @@
             _ => "bg-light text-dark"
         };
     }
+
+    private string GetTabClass(string tab) => $"nav-link{(activeTab == tab ? " active" : string.Empty)}";
 
     public class AnnouncementResponse
     {
